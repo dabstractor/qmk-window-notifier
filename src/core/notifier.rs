@@ -14,7 +14,22 @@ pub trait Notifier: Send + Sync {
 pub struct QmkNotifier;
 impl Notifier for QmkNotifier {
     fn notify(&self, message: String) -> Result<(), Box<dyn Error + Send + Sync>> {
-        Ok(qmk_notifier::run(Some(message))?)
+        if let Ok(api) = hidapi::HidApi::new() {
+            for device in api.device_list() {
+                let _device_info = format!(
+                    "VID: 0x{:04X}, PID: 0x{:04X}, Usage Page: 0x{:04X}, Usage: 0x{:04X}",
+                    device.vendor_id(),
+                    device.product_id(),
+                    device.usage_page(),
+                    device.usage()
+                );
+            }
+        }
+
+        match qmk_notifier::run(Some(message)) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(Box::new(e)),
+        }
     }
 }
 
@@ -41,9 +56,6 @@ pub fn set_notifier(notifier: Box<dyn Notifier>) {
         let mut n = NOTIFIER.lock().unwrap();
         *n = notifier;
     }
-
-    // Debug print
-    println!("Notifier has been set to mock implementation");
 }
 
 struct DebounceState {
@@ -159,6 +171,7 @@ fn debounce_timer(debouncer: Arc<Mutex<DebounceState>>, notifier: Arc<Mutex<Box<
             println!("Sending debounced notification: {}", message);
 
             let notifier_guard = notifier.lock().unwrap();
+
             // Use explicit error handling for better debugging
             if let Err(e) = notifier_guard.notify(message) {
                 eprintln!("Error sending debounced notification: {}", e);
@@ -259,7 +272,7 @@ mod tests {
 
         // Check with debug output
         let count = MockNotifier::get_call_count();
-        println!("Call count after notification: {}", count);
+
         assert_eq!(count, 1);
 
         assert_eq!(
@@ -320,10 +333,6 @@ mod tests {
         // Wait for the debounce timer to fully complete and send
         thread::sleep(Duration::from_millis(2000));
 
-        // Debug output
-        println!("Final call count: {}", MockNotifier::get_call_count());
-        println!("Last message: {:?}", MockNotifier::get_last_message());
-
         // Verify debounced message was sent (2 total calls)
         assert_eq!(MockNotifier::get_call_count(), 2);
         assert_eq!(
@@ -362,10 +371,6 @@ mod tests {
 
         // Wait for the debounce timer to fully complete
         thread::sleep(Duration::from_millis(2000));
-
-        // Debug output
-        println!("Final call count: {}", MockNotifier::get_call_count());
-        println!("Last message: {:?}", MockNotifier::get_last_message());
 
         // Verify only the last debounced message was sent
         assert_eq!(MockNotifier::get_call_count(), 2);

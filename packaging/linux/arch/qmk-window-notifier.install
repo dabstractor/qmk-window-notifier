@@ -1,0 +1,94 @@
+post_install() {
+  echo "Configuring QMK Window Notifier..."
+
+  echo "Creating configuration file..."
+  qmk-window-notifier -c
+
+  # Default values
+  default_vendor_id="feed"
+  default_product_id="0000"
+
+  # Prompt for vendor ID and product ID
+  echo -n "Enter your QMK keyboard vendor ID [default: $default_vendor_id]: "
+  read vendor_id
+  vendor_id=${vendor_id:-$default_vendor_id}
+
+  echo -n "Enter your QMK keyboard product ID [default: $default_product_id]: "
+  read product_id
+  product_id=${product_id:-$default_product_id}
+
+  # Get current user information
+  current_user=$(logname || whoami)
+  user_id=$(id -u "$current_user")
+
+  # Create udev rules with the correct IDs
+  sed -e "s/{vendor_id}/$vendor_id/g" \
+    -e "s/{product_id}/$product_id/g" \
+      -e "s/{username}/$current_user/g" \
+      -e "s/{user_id}/$user_id/g" \
+      /etc/udev/rules.d/99-qmk-window-notifier.rules.template > /etc/udev/rules.d/99-qmk-window-notifier.rules
+
+  # Create systemd service with the correct IDs
+  sed -e "s/{vendor_id}/$vendor_id/g" \
+      -e "s/{product_id}/$product_id/g" \
+      /usr/lib/systemd/user/qmk-window-notifier.service.template > /usr/lib/systemd/user/qmk-window-notifier.service
+
+  # Remove template files
+  rm -f /etc/udev/rules.d/99-qmk-window-notifier.rules.template
+  rm -f /usr/lib/systemd/user/qmk-window-notifier.service.template
+
+  # Set proper permissions
+  chmod 0644 /etc/udev/rules.d/99-qmk-window-notifier.rules
+  chmod 0644 /usr/lib/systemd/user/qmk-window-notifier.service
+
+  # Reload udev rules
+  udevadm control --reload-rules
+  udevadm trigger
+
+  echo "QMK Window Notifier has been configured with:"
+  echo "  Vendor ID: $vendor_id"
+  echo "  Product ID: $product_id"
+  echo "  User: $current_user (ID: $user_id)"
+  echo ""
+  echo "To enable and start the service for your user, run:"
+  echo " systemctl --user enable --now qmk-window-notifier.service"
+  echo ""
+}
+
+post_upgrade() {
+  echo "Reloading QMK Window Notifier configuration..."
+  qmk-window-notifier --reload
+
+  echo "QMK Window Notifier has been upgraded."
+  echo "You may need to restart the service with:"
+  echo "  systemctl --user restart qmk-window-notifier.service"
+}
+
+post_remove() {
+  echo "Removing QMK Window Notifier..."
+
+  # Stop and disable the service for all users
+  for user_home in /home/*; do
+    username=$(basename "$user_home")
+    user_id=$(id -u "$username" 2>/dev/null)
+
+    if [ -n "$user_id" ]; then
+      if systemctl --user -M "$username@" status qmk-window-notifier.service &>/dev/null; then
+        echo "Stopping service for $username..."
+        su "$username" -c "XDG_RUNTIME_DIR=/run/user/$user_id systemctl --user stop qmk-window-notifier.service"
+        su "$username" -c "XDG_RUNTIME_DIR=/run/user/$user_id systemctl --user disable qmk-window-notifier.service"
+      fi
+    fi
+  done
+
+  # Remove configuration files
+  rm -f /etc/udev/rules.d/99-qmk-window-notifier.rules
+  rm -f /usr/lib/systemd/user/qmk-window-notifier.service
+  rm -f /usr/libexec/qmk-window-notifier/qmk-window-notifier.sh
+
+  # Reload udev rules
+  udevadm control --reload-rules
+  udevadm trigger
+
+  echo "QMK Window Notifier has been successfully removed."
+}

@@ -1,6 +1,6 @@
 [package]
 name = "qmk-window-notifier"
-version = "0.2.0"
+version = "0.1.0"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
 description = "Cross-platform window activity notifier for QMK keyboards"
@@ -14,6 +14,9 @@ qmk_notifier = { package = "qmk_notifier", path = "../qmk_notifier" }
 ctrlc = "3.2"
 block = "0.1"
 once_cell = "1.18"
+dirs = "5.0"
+toml = "0.5"
+hidapi = "2.4.1"
 
 # Linux dependencies
 [target.'cfg(target_os = "linux")'.dependencies]
