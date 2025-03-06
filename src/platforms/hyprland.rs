@@ -10,7 +10,10 @@ use hyprland::{
     shared::HyprDataActiveOptional,
 };
 use std::{
+    env,
     error::Error,
+    fs,
+    path::PathBuf,
     sync::{Arc, Mutex},
     thread,
     time::{Duration, SystemTime},
@@ -202,8 +205,65 @@ impl WindowMonitor for HyprlandMonitor {
     }
 }
 
-pub fn is_hyprland_running() -> bool {
-    std::env::var("HYPRLAND_INSTANCE_SIGNATURE").is_ok()
+pub(crate) fn is_hyprland_running() -> bool {
+    match check_hyprland_environment() {
+        Ok(_) => true,
+        Err(e) => {
+            eprintln!("Hyprland environment check failed: {}", e);
+            false
+        }
+    }
+}
+
+fn check_hyprland_environment() -> Result<(), Box<dyn Error>> {
+    // First try environment variable approach
+    if let Ok(signature) = env::var("HYPRLAND_INSTANCE_SIGNATURE") {
+        if let Ok(runtime_dir) = env::var("XDG_RUNTIME_DIR") {
+            let socket_path = PathBuf::from(&runtime_dir)
+                .join("hypr")
+                .join(signature)
+                .join(".socket.sock");
+
+            if socket_path.exists() {
+                return Ok(());
+            }
+        }
+    }
+
+    // If environment variables aren't set, try to find the socket directly
+    if let Ok(runtime_dir) = env::var("XDG_RUNTIME_DIR") {
+        let hypr_dir = PathBuf::from(&runtime_dir).join("hypr");
+        if hypr_dir.exists() {
+            // Look for any instance directories
+            if let Ok(entries) = fs::read_dir(&hypr_dir) {
+                for entry in entries.flatten() {
+                    let socket_path = entry.path().join(".socket.sock");
+                    if socket_path.exists() {
+                        // Found a socket! Set the environment variable
+                        let instance_sig = entry.file_name();
+                        env::set_var(
+                            "HYPRLAND_INSTANCE_SIGNATURE",
+                            instance_sig.to_string_lossy().as_ref(),
+                        );
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
+
+    // If we get here, we need to check if Hyprland is actually running
+    let ps_output = std::process::Command::new("ps")
+        .args(["-e", "-o", "comm="])
+        .output()?;
+
+    let processes = String::from_utf8_lossy(&ps_output.stdout);
+    if processes.lines().any(|line| line.contains("Hyprland")) {
+        // Hyprland is running but we can't find the socket
+        Err("Hyprland is running but socket not found. Ensure XDG_RUNTIME_DIR is set and accessible.".into())
+    } else {
+        Err("Hyprland is not running".into())
+    }
 }
 
 #[cfg(all(target_os = "linux", feature = "hyprland"))]

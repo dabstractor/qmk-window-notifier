@@ -21,6 +21,20 @@ This tool is part of a broader ecosystem I've created:
 
 ## Installation
 
+### Arch Linux (AUR)
+
+The package is available in the AUR:
+
+```bash
+# Using an AUR helper like yay
+yay -S qmk-window-notifier
+
+# Or manually
+git clone https://aur.archlinux.org/qmk-window-notifier.git
+cd qmk-window-notifier
+makepkg -si
+```
+
 ### From Source
 
 ```bash
@@ -32,18 +46,56 @@ cd qmk-window-notifier
 cargo build --release
 
 # The binary will be available at target/release/qmk-window-notifier
+# Copy it to a location in your PATH
+sudo cp target/release/qmk-window-notifier /usr/local/bin/
+
+# Create udev rules file (Linux only)
+sudo cp packaging/linux/udev/99-qmk-window-notifier.rules.template /etc/udev/rules.d/99-qmk-window-notifier.rules
+
+# Create systemd service file (Linux only)
+mkdir -p ~/.config/systemd/user/
+cp packaging/linux/systemd/qmk-window-notifier.service.template ~/.config/systemd/user/qmk-window-notifier.service
 ```
-The binary will be available at target/release/qmk-window-notifier
 
 ### Dependencies
 
 - [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's directory
+
+## Configuration
+
+### Creating a Configuration File
+
+Create a configuration file with:
+
+```bash
+qmk-window-notifier -c
+```
+
+This will create a configuration file at `~/.config/qmk-notifier/config.toml` with default values.
+
+### Reloading Configuration
+
+After changing the configuration file, reload it with:
+
+```bash
+sudo qmk-window-notifier -r
+```
+
+This will:
+1. Read your configuration file
+2. Update the udev rules with your keyboard's vendor and product IDs
+3. Reload the udev rules
+
+**Important:** You must reload the configuration whenever you change your keyboard's vendor ID or product ID in the config file.
 
 ## Usage
 
 Simply run the application while a supported environment is active:
 
 ```bash
+# Display help
+qmk-window-notifier -h
+
 # Run the application
 qmk-window-notifier
 ```
@@ -73,11 +125,21 @@ When a window focus change is detected, this application formats the data as:
 
 ## Automatic Startup
 
+### Hyprland
+
 To run this utility automatically when Hyprland starts, add the following to your Hyprland configuration file:
 
 ```bash
 # ~/.config/hypr/hyprland.conf
 exec-once = qmk-window-notifier
+```
+
+### Systemd (All Linux Desktop Environments)
+
+Enable and start the service for your user:
+
+```bash
+systemctl --user enable --now qmk-window-notifier.service
 ```
 
 ## Example Use Cases

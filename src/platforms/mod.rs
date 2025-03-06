@@ -1,37 +1,58 @@
 mod hyprland;
+mod linux;
+#[cfg(target_os = "macos")]
 mod macos;
+
+// Define WindowMonitor trait
+pub trait WindowMonitor {
+    fn platform_name(&self) -> &str;
+    fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>;
+
+    // Add attribute to suppress dead code warning
+    #[allow(dead_code)]
+    fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Default implementation
+        Ok(())
+    }
+}
+
+// Export Linux module's functions
+#[cfg(target_os = "linux")]
+pub use linux::*;
 
 use std::error::Error;
 
-pub trait WindowMonitor {
-    fn platform_name(&self) -> &str;
-    fn start(&mut self) -> Result<(), Box<dyn Error>>;
-    #[allow(dead_code)]
-    fn stop(&mut self) -> Result<(), Box<dyn Error>>;
-}
-
+// Return a platform-specific monitor implementation
 pub fn create_monitor(verbose: bool) -> Result<Box<dyn WindowMonitor>, Box<dyn Error>> {
-    // Use a let-else pattern to avoid multiple returns with early detection
-    #[cfg(target_os = "macos")]
-    {
-        return Ok(Box::new(macos::MacOSMonitor::new(verbose)));
-    }
-
+    // Platform-specific implementations
     #[cfg(all(target_os = "linux", feature = "hyprland"))]
     {
-        // For Linux, we need to detect the specific desktop environment
-        if hyprland::is_hyprland_running() {
-            return Ok(Box::new(hyprland::HyprlandMonitor::new(verbose)));
-        } else {
-            return Err("Hyprland is not running".into());
-        }
+        use hyprland::HyprlandMonitor;
+        return Ok(Box::new(HyprlandMonitor::new(verbose)));
     }
 
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
+    #[cfg(target_os = "macos")]
     {
-        // If we can't detect a supported platform
-        Err("Unsupported platform or desktop environment".into())
+        use macos::MacOSMonitor;
+        return Ok(Box::new(MacOSMonitor::new(verbose)));
     }
+
+    // Fix unreachable code warning by removing the 'return' keywords above
+    // and using a more idiomatic approach
+    #[cfg(not(any(all(target_os = "linux", feature = "hyprland"), target_os = "macos")))]
+    Err("No suitable monitor for this platform".into())
+}
+
+// Get configuration paths based on current platform
+pub fn get_config_paths() -> Vec<std::path::PathBuf> {
+    #[cfg(target_os = "linux")]
+    return linux::get_config_paths();
+
+    #[cfg(target_os = "macos")]
+    return Vec::new(); // Placeholder for macOS
+
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    return Vec::new(); // Default for other platforms
 }
 
 #[cfg(test)]

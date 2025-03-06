@@ -1,0 +1,42 @@
+# Maintainer: Your Name <your.email@example.com>
+pkgname=qmk-window-notifier
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="A notification daemon for QMK keyboards"
+arch=('x86_64')
+url="https://github.com/dabstractor/qmk-window-notifier"
+license=('MIT')
+depends=('systemd' 'hidapi' 'libusb')
+makedepends=('cargo' 'rust' 'libx11' 'libxcb' 'systemd-libs' 'pkg-config')
+backup=("etc/udev/rules.d/99-qmk-window-notifier.rules.template"
+        "usr/lib/systemd/user/qmk-window-notifier.service.template")
+install=qmk-window-notifier.install
+options=(!strip)
+
+build() {
+  cd "$srcdir/.."
+
+  # Build with Hyprland feature enabled and explicitly link against hidapi-hidraw
+  # instead of hidapi-libusb to support usage and usage_page
+  RUSTFLAGS="-C link-arg=-lhidapi-hidraw" cargo build --release --features 'hyprland'
+}
+
+package() {
+  cd "$srcdir/.."
+
+  # Install binary
+  install -Dm755 "../../../target/release/qmk-window-notifier" "$pkgdir/usr/bin/qmk-window-notifier"
+
+  # Install udev rule template
+  install -Dm644 "../udev/99-qmk-window-notifier.rules.template" "$pkgdir/etc/udev/rules.d/99-qmk-window-notifier.rules.template"
+
+  # Install systemd service template
+  install -Dm644 "../systemd/qmk-window-notifier.service.template" "$pkgdir/usr/lib/systemd/user/qmk-window-notifier.service.template"
+
+  # Create directory for the wrapper script
+  mkdir -p "$pkgdir/usr/libexec/qmk-window-notifier"
+
+  # Install wrapper script with executable permissions
+  install -Dm755 "../qmk-window-notifier.sh" "$pkgdir/usr/libexec/qmk-window-notifier/qmk-window-notifier.sh"
+
+}
