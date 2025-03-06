@@ -261,7 +261,9 @@ fn poll_window_state(
         if let Some(window_state) = &current_window_state {
             let window_info =
                 WindowInfo::new(window_state.app_class.clone(), window_state.title.clone());
-            notifier::notify_qmk(&window_info, verbose)?;
+            if let Err(e) = notifier::notify_qmk(&window_info, verbose) {
+                eprintln!("Error notifying QMK: {}", e);
+            }
         }
         *last_state = current_window_state;
     }
@@ -290,7 +292,9 @@ fn handle_window_state_change(
                 });
             }
 
-            notifier::notify_qmk(&window_info, verbose)?;
+            if let Err(e) = notifier::notify_qmk(&window_info, verbose) {
+                eprintln!("Error notifying QMK: {}", e);
+            }
         }
         Ok(None) => {
             // No active window - we're on an empty workspace
@@ -310,7 +314,9 @@ fn handle_window_state_change(
                 });
             }
 
-            notifier::notify_qmk(&window_info, verbose)?;
+            if let Err(e) = notifier::notify_qmk(&window_info, verbose) {
+                eprintln!("Error notifying QMK: {}", e);
+            }
         }
         Err(err) => {
             eprintln!("Failed to get active window info: {}", err);
@@ -331,4 +337,38 @@ fn handle_workspace_change(
 
     // Check if the workspace is empty by checking for active window
     handle_window_state_change(last_window_state, verbose)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_window_state() {
+        let state1 = WindowState {
+            app_class: "App1".to_string(),
+            title: "Title1".to_string(),
+        };
+
+        let state2 = state1.clone();
+
+        assert_eq!(state1.app_class, state2.app_class);
+        assert_eq!(state1.title, state2.title);
+        assert_eq!(state1, state2);
+    }
+
+    #[test]
+    fn test_hyprland_monitor_creation() {
+        let monitor = HyprlandMonitor::new(true);
+        assert_eq!(monitor.platform_name(), "Hyprland");
+        assert!(monitor.verbose);
+
+        let monitor = HyprlandMonitor::new(false);
+        assert_eq!(monitor.platform_name(), "Hyprland");
+        assert!(!monitor.verbose);
+    }
+
+    // Note: Most functionality in HyprlandMonitor heavily depends on
+    // the actual Hyprland environment, so we can only unit test the
+    // basic parts without specialized mocks.
 }
