@@ -1185,6 +1185,7 @@ dependencies = [
  "hyprland",
  "libc",
  "objc",
+ "once_cell",
  "qmk_notifier",
  "serde",
  "serde_json",
