@@ -4,7 +4,7 @@ mod linux;
 mod macos;
 
 // Define WindowMonitor trait
-pub trait WindowMonitor {
+pub trait WindowMonitor: Send {
     fn platform_name(&self) -> &str;
     fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>;
 

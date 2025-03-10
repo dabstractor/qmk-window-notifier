@@ -17,6 +17,11 @@ once_cell = "1.18"
 dirs = "5.0"
 toml = "0.5"
 hidapi = "2.4.1"
+tao = "0.32.8"
+tray-icon = "0.20.0"
+objc2-core-foundation = "0.3.0"
+image = "0.25.5"
+objc2-foundation = "0.3.0"
 
 # Linux dependencies
 [target.'cfg(target_os = "linux")'.dependencies]

@@ -1,6 +1,8 @@
 mod core;
 mod platforms;
+mod tray;
 
+use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 use std::process;
@@ -13,7 +15,7 @@ fn main() {
 }
 
 fn run() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = env::args().collect();
     let verbose = args.iter().any(|arg| arg == "-v" || arg == "--verbose");
 
     // Check for help
@@ -33,6 +35,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     }
 
     // Create the appropriate monitor for the current platform
+
     let mut monitor = platforms::create_monitor(verbose)?;
     println!("QMK Window Notifier started");
     if verbose {
@@ -48,8 +51,20 @@ fn run() -> Result<(), Box<dyn Error>> {
     })?;
 
     // Start the monitor in the current thread
-    if let Err(e) = monitor.start() {
-        eprintln!("Monitor error: {}", e);
+    let monitor_thread = std::thread::spawn(move || {
+        if let Err(e) = monitor.start() {
+            eprintln!("Monitor error: {}", e);
+        }
+    });
+
+    tray::setup_tray();
+
+    if verbose {
+        println!("System tray icon initialized");
+    }
+
+    if let Err(e) = monitor_thread.join() {
+        eprintln!("Error joining Monitor thread: {:?}", e);
     }
 
     // If we reach here, the monitor stopped on its own
