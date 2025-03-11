@@ -4,7 +4,20 @@ mod linux;
 mod macos;
 
 // Define WindowMonitor trait
+#[cfg(not(all(target_os = "linux", feature = "hyprland")))]
 pub trait WindowMonitor: Send {
+    fn platform_name(&self) -> &str;
+    fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>;
+
+    // Add attribute to suppress dead code warning
+    #[allow(dead_code)]
+    fn stop(&mut self) -> Result<(), Box<dyn std::error::Error>> {
+        // Default implementation
+        Ok(())
+    }
+}
+#[cfg(all(target_os = "linux", feature = "hyprland"))]
+pub trait WindowMonitor {
     fn platform_name(&self) -> &str;
     fn start(&mut self) -> Result<(), Box<dyn std::error::Error>>;
 

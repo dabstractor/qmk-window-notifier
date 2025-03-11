@@ -2,7 +2,6 @@
 use crate::core::notifier;
 use crate::core::types::WindowInfo;
 use crate::platforms::WindowMonitor;
-#[cfg(all(target_os = "linux", feature = "hyprland"))]
 use hyprland::{
     data::Client,
     event_listener::{EventListener, WorkspaceEventData},
@@ -36,11 +35,8 @@ impl Clone for WindowState {
 }
 
 pub struct HyprlandMonitor {
-    #[cfg(all(target_os = "linux", feature = "hyprland"))]
     event_listener: Option<EventListener>,
-    #[cfg(all(target_os = "linux", feature = "hyprland"))]
     last_window_state: Arc<Mutex<Option<WindowState>>>,
-    #[cfg(all(target_os = "linux", feature = "hyprland"))]
     polling_active: Arc<Mutex<bool>>,
     verbose: bool,
 }
@@ -48,11 +44,8 @@ pub struct HyprlandMonitor {
 impl HyprlandMonitor {
     pub fn new(verbose: bool) -> Self {
         Self {
-            #[cfg(all(target_os = "linux", feature = "hyprland"))]
             event_listener: None,
-            #[cfg(all(target_os = "linux", feature = "hyprland"))]
             last_window_state: Arc::new(Mutex::new(None)),
-            #[cfg(all(target_os = "linux", feature = "hyprland"))]
             polling_active: Arc::new(Mutex::new(false)),
             verbose,
         }
@@ -74,7 +67,6 @@ impl WindowMonitor for HyprlandMonitor {
             println!("Starting Hyprland window monitor");
         }
 
-        #[cfg(all(target_os = "linux", feature = "hyprland"))]
         {
             // Verify we can connect to Hyprland initially
             if let Err(e) = hyprland::data::Monitors::get() {
@@ -186,13 +178,9 @@ impl WindowMonitor for HyprlandMonitor {
                 }
             }
         }
-
-        #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
-        Err("Hyprland support not compiled in this build".into())
     }
 
     fn stop(&mut self) -> Result<(), Box<dyn Error>> {
-        #[cfg(all(target_os = "linux", feature = "hyprland"))]
         {
             // Stop the polling thread
             {
@@ -266,7 +254,6 @@ fn check_hyprland_environment() -> Result<(), Box<dyn Error>> {
     }
 }
 
-#[cfg(all(target_os = "linux", feature = "hyprland"))]
 fn poll_window_state(
     last_window_state: &Arc<Mutex<Option<WindowState>>>,
     verbose: bool,
@@ -331,7 +318,6 @@ fn poll_window_state(
     Ok(())
 }
 
-#[cfg(all(target_os = "linux", feature = "hyprland"))]
 fn handle_window_state_change(
     last_window_state: &Arc<Mutex<Option<WindowState>>>,
     verbose: bool,
@@ -385,7 +371,6 @@ fn handle_window_state_change(
     Ok(())
 }
 
-#[cfg(all(target_os = "linux", feature = "hyprland"))]
 fn handle_workspace_change(
     workspace_event: WorkspaceEventData,
     last_window_state: &Arc<Mutex<Option<WindowState>>>,

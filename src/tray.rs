@@ -1,3 +1,4 @@
+#![cfg(not(all(target_os = "linux", feature = "hyprland")))]
 use tao::{
     event::Event,
     event_loop::{ControlFlow, EventLoopBuilder},

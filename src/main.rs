@@ -37,6 +37,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     // Create the appropriate monitor for the current platform
 
     let mut monitor = platforms::create_monitor(verbose)?;
+
     println!("QMK Window Notifier started");
     if verbose {
         println!("Verbose logging enabled");
@@ -51,20 +52,29 @@ fn run() -> Result<(), Box<dyn Error>> {
     })?;
 
     // Start the monitor in the current thread
+    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     let monitor_thread = std::thread::spawn(move || {
         if let Err(e) = monitor.start() {
             eprintln!("Monitor error: {}", e);
         }
     });
 
+    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     tray::setup_tray();
 
+    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     if verbose {
         println!("System tray icon initialized");
     }
 
+    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     if let Err(e) = monitor_thread.join() {
         eprintln!("Error joining Monitor thread: {:?}", e);
+    }
+
+    #[cfg(all(target_os = "linux", feature = "hyprland"))]
+    if let Err(e) = monitor.start() {
+        eprintln!("Monitor error: {}", e);
     }
 
     // If we reach here, the monitor stopped on its own

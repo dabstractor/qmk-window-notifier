@@ -6,7 +6,6 @@ use crate::platforms::WindowMonitor;
 use std::error::Error;
 use std::ffi::c_void;
 
-#[cfg(target_os = "macos")]
 use core_foundation::{
     array::CFArray,
     base::CFRange,
@@ -16,17 +15,13 @@ use core_foundation::{
     string::CFString,
 };
 
-#[cfg(target_os = "macos")]
 use core_graphics::window::{kCGWindowListOptionOnScreenOnly, CGWindowListCopyWindowInfo};
 
-#[cfg(target_os = "macos")]
 use objc::{class, msg_send, runtime::Object, sel, sel_impl};
 
-#[cfg(target_os = "macos")]
 use dispatch::Queue;
 
 // Existing extern block for various symbols
-#[cfg(target_os = "macos")]
 extern "C" {
     static NSWorkspaceDidActivateApplicationNotification: *const Object;
     static kCGWindowOwnerName: *const c_void;
@@ -38,7 +33,6 @@ extern "C" {
 }
 
 // New extern block for screen recording permissions:
-#[cfg(target_os = "macos")]
 extern "C" {
     /// Returns true if the app already has screen recording permission (or if running on an older OS).
     fn CGPreflightScreenCaptureAccess() -> bool;
@@ -48,14 +42,11 @@ extern "C" {
 }
 
 // Define nil as a null pointer
-#[cfg(target_os = "macos")]
 const NIL: *mut Object = std::ptr::null_mut();
 
 // Global verbose setting that can be accessed by callback
-#[cfg(target_os = "macos")]
 static mut VERBOSE: bool = false;
 
-#[cfg(target_os = "macos")]
 #[cfg(feature = "modern_macos")]
 extern "C" {
     static NSWorkspaceAuthorizationTypeScreenCapture: *const Object;
@@ -75,7 +66,6 @@ impl MacOSMonitor {
     }
 
     /// Call this function to check and request screen recording permission.
-    #[cfg(target_os = "macos")]
     fn request_screen_recording_permission() -> bool {
         unsafe {
             if CGPreflightScreenCaptureAccess() {
@@ -92,7 +82,6 @@ impl MacOSMonitor {
         }
     }
 
-    #[cfg(target_os = "macos")]
     unsafe fn setup_observers(&mut self) -> Result<(), Box<dyn Error>> {
         // Set global verbose flag for callbacks
         unsafe {
@@ -198,7 +187,6 @@ impl WindowMonitor for MacOSMonitor {
             println!("Starting macOS window monitor");
         }
 
-        #[cfg(target_os = "macos")]
         {
             unsafe {
                 // First, check and request screen recording permission.
@@ -221,15 +209,11 @@ impl WindowMonitor for MacOSMonitor {
                 CFRunLoopRun();
             }
 
-            Ok(())
+            return Ok(());
         }
-
-        #[cfg(not(target_os = "macos"))]
-        Err("macOS platform support not compiled in this build".into())
     }
 
     fn stop(&mut self) -> Result<(), Box<dyn Error>> {
-        #[cfg(target_os = "macos")]
         {
             self.running = false;
             CFRunLoop::get_current().stop();
@@ -239,7 +223,6 @@ impl WindowMonitor for MacOSMonitor {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn get_active_window_info() -> Result<Option<WindowInfo>, Box<dyn Error>> {
     unsafe {
         let workspace: *mut Object = msg_send![class!(NSWorkspace), sharedWorkspace];
@@ -308,7 +291,6 @@ fn get_active_window_info() -> Result<Option<WindowInfo>, Box<dyn Error>> {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn nsstring_to_string(nsstring: *mut Object) -> String {
     unsafe {
         let utf8: *const i8 = msg_send![nsstring, UTF8String];
@@ -318,7 +300,6 @@ fn nsstring_to_string(nsstring: *mut Object) -> String {
     }
 }
 
-#[cfg(target_os = "macos")]
 fn cfstring_to_string(cf_string: &CFString) -> String {
     cf_string.to_string()
 }

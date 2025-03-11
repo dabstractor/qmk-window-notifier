@@ -21,19 +21,40 @@ This tool is part of a broader ecosystem I've created:
 
 ## Installation
 
-### Arch Linux (AUR)
-
-The package is available in the AUR:
+### Arch Linux
 
 ```bash
-# Using an AUR helper like yay
-yay -S qmk-window-notifier
-
-# Or manually
-git clone https://aur.archlinux.org/qmk-window-notifier.git
-cd qmk-window-notifier
+git clone https://github.com/dabstractor/qmk-window-notifier.git
+cd qmk-window-notifier/packaging/linux/arch
 makepkg -si
 ```
+
+### Other linux systems
+Download the release binary from the [releases page](https://github.com/dabstractor/qmk-window-notifier/releases)
+
+If you want it to start automatically, install the service file and start the service:
+```
+curl https://raw.githubusercontent.com/dabstractor/qmk-window-notifier/refs/heads/main/packaging/linux/systemd/qmk-window-notifier.service.template | sudo tee /usr/lib/systemd/user/qmk-window-notifier.service
+systemctl --user enable --now qmk-window-notifier.service
+```
+If you want the service turned off when the keyboard isn't plugged in, copy the udev rules template from this project into /etc/udev/rules.d/
+```
+curl https://raw.githubusercontent.com/dabstractor/qmk-window-notifier/refs/heads/main/packaging/linux/udev/99-qmk-window-notifier.rules.template | sudo tee /etc/udev/rules.d/99-qmk-window-notifier.rules.template
+```
+Create the config file, write your config to the rules, then reload udev:
+```bash
+qmk-window-notifier -c
+sudo qmk-window-notifier -r
+sudo udevadm control --reload && sudo udevadm trigger
+```
+
+### MacOS
+```bash
+git clone https://github.com/dabstractor/qmk-window-notifier.git
+cd qmk-window-notifier/packaging/macos
+./build.sh
+```
+Then copy your QMK Window Notifier.app to your /Applications folder
 
 ### From Source
 
@@ -49,17 +70,21 @@ cargo build --release
 # Copy it to a location in your PATH
 sudo cp target/release/qmk-window-notifier /usr/local/bin/
 
+
 # Create udev rules file (Linux only)
-sudo cp packaging/linux/udev/99-qmk-window-notifier.rules.template /etc/udev/rules.d/99-qmk-window-notifier.rules
+sudo cp packaging/linux/udev/99-qmk-window-notifier.rules.template /etc/udev/rules.d/99-qmk-window-notifier.rules.template
 
 # Create systemd service file (Linux only)
 mkdir -p ~/.config/systemd/user/
 cp packaging/linux/systemd/qmk-window-notifier.service.template ~/.config/systemd/user/qmk-window-notifier.service
+
+qmk-window-notifier -c
+qmk-window-notifier -r
 ```
 
 ### Dependencies
 
-- [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's directory
+- [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's main directory alongside the `keymap` directory
 
 ## Configuration
 
@@ -79,6 +104,7 @@ After changing the configuration file, reload it with:
 
 ```bash
 sudo qmk-window-notifier -r
+sudo udevadm control --reload && sudo udevadm trigger
 ```
 
 This will:
@@ -90,15 +116,18 @@ This will:
 
 ## Usage
 
-Simply run the application while a supported environment is active:
+### MacOS
 
+Run the application from within your QMK Window Notifier.app.
+
+### Linux
+
+The application should start automatically when your keyboard is plugged in.
+If not, you can start it manually:
 ```bash
-# Display help
-qmk-window-notifier -h
-
-# Run the application
-qmk-window-notifier
+qmk-window-notifier & disown
 ```
+
 
 The application automatically:
 1. Verifies it's running within a supported environment
@@ -123,24 +152,29 @@ When a window focus change is detected, this application formats the data as:
 - Handles error conditions gracefully (e.g., when a supported environment is not running)
 - Minimal overhead and resource usage
 
-## Automatic Startup
 
-### Hyprland
+Your QMK keyboard should be detected when plugged in and the service should start and stop automatically.
 
-To run this utility automatically when Hyprland starts, add the following to your Hyprland configuration file:
+## Other Keyboards
+If your QMK keyboard uses a different vendor or product ID, or has a different usage_page or usage value, you can configure them in the configuration file at $XDG_CONFIG_HOME/qmk-notifier/config.toml. After changing it, reload the udev rules (linux only):
+```
+sudo qmk-window-notifier -r
+```
+The default configuration file looks like:
+```
+# Your QMK keyboard's vendor ID (in hex)
+vendor_id = 0xfeed
 
-```bash
-# ~/.config/hypr/hyprland.conf
-exec-once = qmk-window-notifier
+# Your QMK keyboard's product ID (in hex)
+product_id = 0x0000
+
+# Usage Page
+usage_page = 0xFF60
+
+# Usage
+usage = 0x61
 ```
 
-### Systemd (All Linux Desktop Environments)
-
-Enable and start the service for your user:
-
-```bash
-systemctl --user enable --now qmk-window-notifier.service
-```
 
 ## Example Use Cases
 
