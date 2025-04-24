@@ -5,6 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+const DEBOUNCE_INTERVAL: Duration = Duration::from_millis(100);
+
 // Trait to abstract the notification functionality
 pub trait Notifier: Send + Sync {
     fn notify(&self, message: String) -> Result<(), Box<dyn Error + Send + Sync>>;
@@ -103,10 +105,11 @@ pub fn notify_qmk(
         // Determine if we should send immediately
         // For tests, use a slightly higher threshold to avoid timing issues
         #[cfg(test)]
-        let should_send_now = elapsed > Duration::from_millis(600) || is_first_message;
+        let should_send_now =
+            elapsed > DEBOUNCE_INTERVAL + Duration::from_millis(100) || is_first_message;
 
         #[cfg(not(test))]
-        let should_send_now = elapsed > Duration::from_millis(500) || is_first_message;
+        let should_send_now = elapsed > DEBOUNCE_INTERVAL || is_first_message;
 
         // Start the timer thread if not already running
         if !state.timer_running && !should_send_now {
@@ -142,15 +145,15 @@ pub fn notify_qmk(
 
 fn debounce_timer(debouncer: Arc<Mutex<DebounceState>>, notifier: Arc<Mutex<Box<dyn Notifier>>>) {
     loop {
-        thread::sleep(Duration::from_millis(100)); // Check every 100ms
+        thread::sleep(Duration::from_millis(10)); // Check every 100ms
 
         let (should_exit, message_to_send, verbose_mode) = {
             let mut state = debouncer.lock().unwrap();
             let now = Instant::now();
             let elapsed = now.duration_since(state.last_activity);
 
-            // If 1 second has passed without activity, send the last message
-            if elapsed >= Duration::from_millis(500) {
+            // If 100ms have passed without activity, send the last message
+            if elapsed >= Duration::from_millis(100) {
                 let message = state.last_message.clone();
                 state.last_message = None;
                 state.timer_running = false;
@@ -305,7 +308,7 @@ mod tests {
         assert!(result.is_ok());
 
         // Wait a short time - call count should still be 1
-        thread::sleep(Duration::from_millis(200));
+        thread::sleep(DEBOUNCE_INTERVAL);
         assert_eq!(MockNotifier::get_call_count(), 1);
     }
 
