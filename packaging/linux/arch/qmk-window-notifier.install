@@ -82,9 +82,8 @@ post_remove() {
   done
 
   # Remove configuration files
-  rm -f /etc/udev/rules.d/99-qmk-window-notifier.rules
-  rm -f /usr/lib/systemd/user/qmk-window-notifier.service
-  rm -f /usr/libexec/qmk-window-notifier/qmk-window-notifier.sh
+  [ -f /etc/udev/rules.d/99-qmk-window-notifier.rules ] && rm -f /etc/udev/rules.d/99-qmk-window-notifier.rules
+  [ -f /usr/lib/systemd/user/qmk-window-notifier.service ] && rm -f /usr/lib/systemd/user/qmk-window-notifier.service
 
   # Reload udev rules
   udevadm control --reload-rules

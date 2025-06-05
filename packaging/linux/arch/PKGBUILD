@@ -37,6 +37,6 @@ package() {
   mkdir -p "$pkgdir/usr/libexec/qmk-window-notifier"
 
   # Install wrapper script with executable permissions
-  install -Dm755 "../qmk-window-notifier.sh" "$pkgdir/usr/libexec/qmk-window-notifier/qmk-window-notifier.sh"
+  # install -Dm755 "../qmk-window-notifier.sh" "$pkgdir/usr/libexec/qmk-window-notifier/qmk-window-notifier.sh"
 
 }
