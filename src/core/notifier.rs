@@ -5,7 +5,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-const DEBOUNCE_INTERVAL: Duration = Duration::from_millis(100);
+const DEBOUNCE_INTERVAL: Duration = Duration::from_millis(50);
 
 // Trait to abstract the notification functionality
 pub trait Notifier: Send + Sync {
