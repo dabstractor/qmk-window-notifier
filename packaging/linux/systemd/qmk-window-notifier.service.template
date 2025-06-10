@@ -3,10 +3,10 @@ Description=QMK Window Notifier
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/qmk-window-notifier &
+ExecStart=/usr/bin/qmk-window-notifier
 ExecStop=/bin/sh -c "kill -TERM $(pgrep -f '/usr/bin/qmk-window-notifier')"
 Environment="XDG_CONFIG_HOME=%h/.config"
 Environment=XDG_RUNTIME_DIR=/run/user/%U
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target

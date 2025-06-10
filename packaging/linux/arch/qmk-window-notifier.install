@@ -2,7 +2,7 @@ post_install() {
   echo "Configuring QMK Window Notifier..."
 
   echo "Creating configuration file..."
-  qmk-window-notifier -c
+  sudo -u "${SUDO_USER:-$(logname)}" qmk-window-notifier -c
 
   # Default values
   default_vendor_id="feed"
