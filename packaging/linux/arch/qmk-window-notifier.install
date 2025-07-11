@@ -45,13 +45,12 @@ post_install() {
   udevadm control --reload-rules
   udevadm trigger
 
+  systemctl --global enable qmk-window-notifier.service
+
   echo "QMK Window Notifier has been configured with:"
   echo "  Vendor ID: $vendor_id"
   echo "  Product ID: $product_id"
   echo "  User: $current_user (ID: $user_id)"
-  echo ""
-  echo "To enable and start the service for your user, run:"
-  echo " systemctl --user enable --now qmk-window-notifier.service"
   echo ""
 }
 
@@ -60,12 +59,12 @@ post_upgrade() {
   qmk-window-notifier --reload
 
   echo "QMK Window Notifier has been upgraded."
-  echo "You may need to restart the service with:"
-  echo "  systemctl --user restart qmk-window-notifier.service"
 }
 
 post_remove() {
   echo "Removing QMK Window Notifier..."
+
+  systemctl --global disable qmk-window-notifier.service
 
   # Stop and disable the service for all users
   for user_home in /home/*; do
