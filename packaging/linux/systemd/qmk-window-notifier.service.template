@@ -1,12 +1,18 @@
 [Unit]
 Description=QMK Window Notifier
 
-[Service]
-Type=simple
-ExecStart=/usr/bin/qmk-window-notifier
-ExecStop=/bin/sh -c "kill -TERM $(pgrep -f '/usr/bin/qmk-window-notifier')"
-Environment="XDG_CONFIG_HOME=%h/.config"
-Environment=XDG_RUNTIME_DIR=/run/user/%U
+# We will wait for both the D-Bus socket and the graphical session target.
+# D-Bus is often required for IPC in graphical environments.
+Wants=dbus.socket
+After=dbus.socket
+After=graphical-session.target
 
-[Install]
-WantedBy=graphical-session.target
+# BindsTo remains essential for handling hot-plugging.
+BindsTo=dev-qmk_window_notifier_device.device
+After=dev-qmk_window_notifier_device.device
+
+[Service]
+ExecStart=/usr/bin/qmk-window-notifier
+Restart=no
+
+
