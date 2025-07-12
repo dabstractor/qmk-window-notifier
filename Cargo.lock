@@ -2595,6 +2595,7 @@ dependencies = [
 [[package]]
 name = "qmk_notifier"
 version = "0.1.0"
+source = "git+https://github.com/dabstractor/qmk_notifier#56a01bd296c010fd79dd26dd406b3dda5818d385"
 dependencies = [
  "clap",
  "dirs 5.0.1",
