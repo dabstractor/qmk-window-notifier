@@ -21,6 +21,10 @@ This tool is part of a broader ecosystem I've created:
 
 ## Installation
 
+### Dependencies
+
+- [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's main directory alongside the `keymap` directory
+
 ### Arch Linux
 
 ```bash
@@ -82,10 +86,6 @@ qmk-window-notifier -c
 qmk-window-notifier -r
 ```
 
-### Dependencies
-
-- [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's main directory alongside the `keymap` directory
-
 ## Configuration
 
 ### Creating a Configuration File
@@ -103,7 +103,7 @@ This will create a configuration file at `~/.config/qmk-notifier/config.toml` wi
 After changing the configuration file, reload it with:
 
 ```bash
-sudo qmk-window-notifier -r
+qmk-window-notifier -r
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
@@ -158,7 +158,7 @@ Your QMK keyboard should be detected when plugged in and the service should star
 ## Other Keyboards
 If your QMK keyboard uses a different vendor or product ID, or has a different usage_page or usage value, you can configure them in the configuration file at $XDG_CONFIG_HOME/qmk-notifier/config.toml. After changing it, reload the udev rules (linux only):
 ```
-sudo qmk-window-notifier -r
+qmk-window-notifier -r
 ```
 The default configuration file looks like:
 ```
