@@ -2,6 +2,8 @@ mod hyprland;
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(target_os = "windows")]
+mod windows;
 
 // Define WindowMonitor trait
 #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
@@ -50,9 +52,19 @@ pub fn create_monitor(verbose: bool) -> Result<Box<dyn WindowMonitor>, Box<dyn E
         return Ok(Box::new(MacOSMonitor::new(verbose)));
     }
 
+    #[cfg(target_os = "windows")]
+    {
+        use windows::WindowsMonitor;
+        return Ok(Box::new(WindowsMonitor::new(verbose)));
+    }
+
     // Fix unreachable code warning by removing the 'return' keywords above
     // and using a more idiomatic approach
-    #[cfg(not(any(all(target_os = "linux", feature = "hyprland"), target_os = "macos")))]
+    #[cfg(not(any(
+        all(target_os = "linux", feature = "hyprland"),
+        target_os = "macos",
+        target_os = "windows"
+    )))]
     Err("No suitable monitor for this platform".into())
 }
 

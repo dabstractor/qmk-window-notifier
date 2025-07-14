@@ -2589,6 +2589,8 @@ dependencies = [
  "tao",
  "toml 0.5.11",
  "tray-icon",
+ "winapi",
+ "windows 0.52.0",
  "zbus",
 ]
 
@@ -3119,8 +3121,8 @@ dependencies = [
  "tao-macros",
  "unicode-segmentation",
  "url",
- "windows",
- "windows-core",
+ "windows 0.60.0",
+ "windows-core 0.60.1",
  "windows-version",
  "x11-dl",
 ]
@@ -3576,12 +3578,22 @@ checksum = "712e227841d057c1ee1cd2fb22fa7e5a5461ae8e48fa2ca79ec42cfc1931183f"
 
 [[package]]
 name = "windows"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48a53791691ab099e5e2ad123536d0fff50652600abaf43bbf952894110d0be"
+dependencies = [
+ "windows-core 0.52.0",
+ "windows-targets 0.52.6",
+]
+
+[[package]]
+name = "windows"
 version = "0.60.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddf874e74c7a99773e62b1c671427abf01a425e77c3d3fb9fb1e4883ea934529"
 dependencies = [
  "windows-collections",
- "windows-core",
+ "windows-core 0.60.1",
  "windows-future",
  "windows-link",
  "windows-numerics",
@@ -3593,7 +3605,16 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5467f79cc1ba3f52ebb2ed41dbb459b8e7db636cc3429458d9a852e15bc24dec"
 dependencies = [
- "windows-core",
+ "windows-core 0.60.1",
+]
+
+[[package]]
+name = "windows-core"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "33ab640c8d7e35bf8ba19b884ba838ceb4fba93a4e8c65a9059d08afcfc683d9"
+dependencies = [
+ "windows-targets 0.52.6",
 ]
 
 [[package]]
@@ -3615,7 +3636,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a787db4595e7eb80239b74ce8babfb1363d8e343ab072f2ffe901400c03349f0"
 dependencies = [
- "windows-core",
+ "windows-core 0.60.1",
  "windows-link",
 ]
 
@@ -3653,7 +3674,7 @@ version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "005dea54e2f6499f2cee279b8f703b3cf3b5734a2d8d21867c8f44003182eeed"
 dependencies = [
- "windows-core",
+ "windows-core 0.60.1",
  "windows-link",
 ]
 

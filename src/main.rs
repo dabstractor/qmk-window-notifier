@@ -51,14 +51,18 @@ fn run() -> Result<(), Box<dyn Error>> {
         process::exit(0);
     })?;
 
-    // Start the monitor in the current thread
-    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
+    // Start the monitor in a separate thread for non-Hyprland Linux and macOS
+    #[cfg(any(
+        all(target_os = "linux", not(feature = "hyprland")),
+        target_os = "macos"
+    ))]
     let monitor_thread = std::thread::spawn(move || {
         if let Err(e) = monitor.start() {
             eprintln!("Monitor error: {}", e);
         }
     });
 
+    // Setup tray icon for all platforms except Hyprland
     #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     tray::setup_tray();
 
@@ -67,12 +71,20 @@ fn run() -> Result<(), Box<dyn Error>> {
         println!("System tray icon initialized");
     }
 
-    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
+    // Join the monitor thread for platforms where it was spawned
+    #[cfg(any(
+        all(target_os = "linux", not(feature = "hyprland")),
+        target_os = "macos"
+    ))]
     if let Err(e) = monitor_thread.join() {
         eprintln!("Error joining Monitor thread: {:?}", e);
     }
 
-    #[cfg(all(target_os = "linux", feature = "hyprland"))]
+    // For Hyprland and Windows, start the monitor on the main thread
+    #[cfg(any(
+        all(target_os = "linux", feature = "hyprland"),
+        target_os = "windows"
+    ))]
     if let Err(e) = monitor.start() {
         eprintln!("Monitor error: {}", e);
     }
