@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" 
+           Name="QMK Window Notifier" 
+           Language="1033" 
+           Version="1.0.0" 
+           Manufacturer="Mulletware" 
+           UpgradeCode="A1B2C3D4-E5F6-7890-ABCD-123456789012">
+    
+    <Package InstallerVersion="200" 
+             Compressed="yes" 
+             InstallScope="perMachine" 
+             Description="QMK Window Notifier - System service for window change notifications" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Feature definitions -->
+    <Feature Id="ProductFeature" Title="QMK Window Notifier" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <!-- UI for installer -->
+    <UI>
+      <UIRef Id="WixUI_InstallDir" />
+      <UIRef Id="WixUI_ErrorProgressText" />
+    </UI>
+
+    <!-- Custom properties -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="INSTALL_SERVICE" Value="1" />
+    
+    <!-- License agreement -->
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+    
+    <!-- Application icon -->
+    <Icon Id="AppIcon" SourceFile="../Icon.png" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+    
+    <!-- No custom actions needed for tray application -->
+  </Product>
+
+  <!-- Directory structure -->
+  <Fragment>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="QMK Window Notifier" />
+      </Directory>
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="QMK Window Notifier" />
+      </Directory>
+      <Directory Id="StartupFolder" />
+    </Directory>
+  </Fragment>
+
+  <!-- Components to install -->
+  <Fragment>
+    <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <!-- Main executable -->
+      <Component Id="MainExecutable" Guid="*">
+        <File Id="QMKWindowNotifierExe" 
+              Source="../../target/release/qmk-window-notifier.exe" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Icon file -->
+      <Component Id="IconFile" Guid="*">
+        <File Id="IconPng" 
+              Source="../Icon.png" 
+              Name="Icon.png" 
+              KeyPath="yes" />
+      </Component>
+
+      <!-- Start menu shortcut -->
+      <Component Id="StartMenuShortcut" Guid="*">
+        <Shortcut Id="StartMenuShortcut"
+                  Directory="ApplicationProgramsFolder"
+                  Name="QMK Window Notifier"
+                  Description="QMK Window Notifier - Background window change notifications"
+                  Target="[INSTALLFOLDER]qmk-window-notifier.exe"
+                  Arguments="--tray-app"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RemoveFolder Id="ApplicationProgramsFolder" Directory="ApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Mulletware\QMK Window Notifier" 
+                       Name="installed" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+
+      <!-- Startup shortcut for automatic startup -->
+      <Component Id="StartupShortcut" Guid="*">
+        <Shortcut Id="StartupShortcut"
+                  Directory="StartupFolder"
+                  Name="QMK Window Notifier"
+                  Description="QMK Window Notifier - Background window change notifications"
+                  Target="[INSTALLFOLDER]qmk-window-notifier.exe"
+                  Arguments="--tray-app"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon" />
+        <RegistryValue Root="HKCU" 
+                       Key="Software\Mulletware\QMK Window Notifier" 
+                       Name="autostart" 
+                       Type="integer" 
+                       Value="1" 
+                       KeyPath="yes" />
+      </Component>
+
+
+    </ComponentGroup>
+  </Fragment>
+
+
+</Wix>

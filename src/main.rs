@@ -1,14 +1,54 @@
+#![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
+
 mod core;
 mod platforms;
 mod tray;
+
+#[cfg(target_os = "windows")]
+mod service;
 
 use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 use std::process;
 
+#[cfg(target_os = "windows")]
+use log::{error, info};
+
+#[cfg(target_os = "windows")]
+fn init_logging() -> Result<(), Box<dyn Error>> {
+    // Try to initialize Windows Event Log first
+    match eventlog::init("QMK Window Notifier", log::Level::Info) {
+        Ok(()) => {
+            info!("Windows Event Log initialized");
+            Ok(())
+        }
+        Err(e) => {
+            // Fallback to console logging if event log fails
+            env_logger::init();
+            eprintln!("Failed to initialize Windows Event Log, using console: {}", e);
+            Ok(())
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn init_logging() -> Result<(), Box<dyn Error>> {
+    env_logger::init();
+    Ok(())
+}
+
 fn main() {
+    // Initialize logging first
+    if let Err(e) = init_logging() {
+        eprintln!("Failed to initialize logging: {}", e);
+        process::exit(1);
+    }
+
     if let Err(e) = run() {
+        #[cfg(target_os = "windows")]
+        error!("Application error: {}", e);
+        #[cfg(not(target_os = "windows"))]
         eprintln!("Application error: {}", e);
         process::exit(1);
     }
@@ -34,9 +74,40 @@ fn run() -> Result<(), Box<dyn Error>> {
         return reload_config(verbose);
     }
 
+    // Windows service-specific arguments
+    #[cfg(target_os = "windows")]
+    {
+        if args.iter().any(|arg| arg == "--service") {
+            info!("Starting as Windows service");
+            return service::run_service();
+        }
+
+        if args.iter().any(|arg| arg == "--install-service") {
+            return service::install_service();
+        }
+
+        if args.iter().any(|arg| arg == "--uninstall-service") {
+            return service::uninstall_service();
+        }
+
+        if args.iter().any(|arg| arg == "--start-service") {
+            return service::start_service();
+        }
+
+        if args.iter().any(|arg| arg == "--stop-service") {
+            return service::stop_service();
+        }
+
+        // Check if running as regular app (no console window due to windows_subsystem)
+        if args.iter().any(|arg| arg == "--tray-app") {
+            info!("Starting as tray application");
+            return run_tray_app(verbose);
+        }
+    }
+
     // Create the appropriate monitor for the current platform
 
-    let mut monitor = platforms::create_monitor(verbose)?;
+    let monitor = platforms::create_monitor(verbose)?;
 
     println!("QMK Window Notifier started");
     if verbose {
@@ -62,6 +133,19 @@ fn run() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    // On Windows, start the monitor before setting up the tray
+    #[cfg(target_os = "windows")]
+    {
+        let mut monitor = monitor;
+        if let Err(e) = monitor.start() {
+            eprintln!("Failed to start Windows monitor: {}", e);
+            return Err(e);
+        }
+        if verbose {
+            println!("Windows monitor started successfully");
+        }
+    }
+
     // Setup tray icon for all platforms except Hyprland
     #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
     tray::setup_tray();
@@ -80,11 +164,8 @@ fn run() -> Result<(), Box<dyn Error>> {
         eprintln!("Error joining Monitor thread: {:?}", e);
     }
 
-    // For Hyprland and Windows, start the monitor on the main thread
-    #[cfg(any(
-        all(target_os = "linux", feature = "hyprland"),
-        target_os = "windows"
-    ))]
+    // For Hyprland, start the monitor on the main thread
+    #[cfg(all(target_os = "linux", feature = "hyprland"))]
     if let Err(e) = monitor.start() {
         eprintln!("Monitor error: {}", e);
     }
@@ -105,7 +186,53 @@ fn print_help() {
     println!("  -c, --config   Create a configuration file");
     println!("  -r, --reload   Reload configuration and update system files");
     println!("  -l, --list     List supported platforms");
+    
+    #[cfg(target_os = "windows")]
+    {
+        println!("\nWindows Service Options:");
+        println!("  --service              Run as Windows service (used internally)");
+        println!("  --install-service      Install Windows service");
+        println!("  --uninstall-service    Uninstall Windows service");
+        println!("  --start-service        Start Windows service");
+        println!("  --stop-service         Stop Windows service");
+    }
+    
     println!("\nRunning without options will start the notifier service");
+}
+
+#[cfg(target_os = "windows")]
+fn run_tray_app(verbose: bool) -> Result<(), Box<dyn Error>> {
+    info!("Starting QMK Window Notifier as tray application");
+    
+    // Create the monitor
+    let monitor = platforms::create_monitor(verbose)?;
+    
+    if verbose {
+        info!("Using platform: {}", monitor.platform_name());
+    }
+
+    // Start the monitor in a separate thread
+    let _monitor_thread = std::thread::spawn(move || {
+        let mut monitor = monitor;
+        if let Err(e) = monitor.start() {
+            error!("Monitor error: {}", e);
+        }
+    });
+
+    if verbose {
+        info!("Windows monitor started successfully");
+    }
+
+    // Setup tray icon - this will block until the user quits
+    tray::setup_tray();
+
+    // If we reach here, the tray was closed
+    info!("Tray application shutting down");
+
+    // The monitor thread will be terminated when the process exits
+    // We don't need to explicitly join it since the tray exit means the user wants to quit
+
+    Ok(())
 }
 
 fn get_config_path() -> Result<PathBuf, Box<dyn Error>> {

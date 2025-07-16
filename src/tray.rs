@@ -12,6 +12,8 @@ use tray_icon::{
 #[cfg(target_os = "macos")]
 use std::env;
 
+
+
 enum UserEvent {
     MenuEvent(MenuEvent),
 }
@@ -50,11 +52,22 @@ pub fn setup_tray() {
                 let icon = {
                     #[cfg(target_os = "macos")]
                     {
-                        load_icon_from_bundle()
+                        load_icon_from_bundle().unwrap_or_else(|_| create_default_icon())
                     }
                     #[cfg(not(target_os = "macos"))]
                     {
-                        load_icon(std::path::Path::new("packaging/Icon.png"))
+                        // Try to find icon relative to executable first
+                        let exe_path = std::env::current_exe().unwrap_or_default();
+                        let exe_dir = exe_path.parent().unwrap_or_else(|| std::path::Path::new("."));
+                        let icon_path = exe_dir.join("Icon.png");
+                        
+                        if icon_path.exists() {
+                            load_icon(&icon_path).unwrap_or_else(|_| create_default_icon())
+                        } else {
+                            // Fallback to development path, then default icon
+                            load_icon(std::path::Path::new("packaging/Icon.png"))
+                                .unwrap_or_else(|_| create_default_icon())
+                        }
                     }
                 };
 
@@ -66,6 +79,8 @@ pub fn setup_tray() {
                         .build()
                         .unwrap(),
                 );
+
+
 
                 // We have to request a redraw here to have the icon actually show up.
                 // Tao only exposes a redraw method on the Window so we use core-foundation directly.
@@ -90,14 +105,29 @@ pub fn setup_tray() {
     });
 }
 
-fn load_icon(path: &std::path::Path) -> tray_icon::Icon {
+fn load_icon(path: &std::path::Path) -> Result<tray_icon::Icon, Box<dyn std::error::Error>> {
     let (icon_rgba, icon_width, icon_height) = {
-        let image = image::open(path)
-            .expect("Failed to open icon path")
-            .into_rgba8();
+        let image = image::open(path)?.into_rgba8();
         let (width, height) = image.dimensions();
         let rgba = image.into_raw();
         (rgba, width, height)
     };
-    tray_icon::Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
+    Ok(tray_icon::Icon::from_rgba(icon_rgba, icon_width, icon_height)?)
+}
+
+fn create_default_icon() -> tray_icon::Icon {
+    // Create a simple 16x16 default icon if no icon file is found
+    let rgba = vec![255u8; 16 * 16 * 4]; // White 16x16 icon
+    tray_icon::Icon::from_rgba(rgba, 16, 16).expect("Failed to create default icon")
+}
+
+
+#[cfg(target_os = "macos")]
+fn load_icon_from_bundle() -> Result<tray_icon::Icon, Box<dyn std::error::Error>> {
+    let bundle = core_foundation::bundle::CFBundle::main_bundle();
+    let bundle_path = bundle.executable_url().unwrap().to_path().unwrap();
+    let resources_path = bundle_path.parent().unwrap().join("../Resources");
+    let icon_path = resources_path.join("Icon.png");
+
+    load_icon(&icon_path)
 }

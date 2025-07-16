@@ -5,33 +5,26 @@ use crate::platforms::WindowMonitor;
 use std::error::Error;
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
-use std::ptr::null_mut;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
-use std::thread;
-use windows::Win32::Foundation::{BOOL, HWND, LPARAM, LRESULT, TRUE, WPARAM};
+use std::ptr;
+use windows::Win32::Foundation::HWND;
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
 use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
 use windows::Win32::UI::WindowsAndMessaging::{
-    GetClassNameW, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId, PostThreadMessageA,
-    EVENT_OBJECT_FOCUS, WINEVENT_OUTOFCONTEXT, WM_QUIT,
+    GetClassNameW, GetForegroundWindow, GetWindowTextW, GetWindowThreadProcessId,
+    EVENT_OBJECT_FOCUS, WINEVENT_OUTOFCONTEXT,
 };
 
 static mut G_VERBOSE: bool = false;
 static mut G_HOOK: Option<HWINEVENTHOOK> = None;
-static G_THREAD_ID: AtomicU32 = AtomicU32::new(0);
+static mut LAST_WINDOW_INFO: Option<(String, String)> = None;
 
 pub struct WindowsMonitor {
     verbose: bool,
-    running: Arc<AtomicBool>,
 }
 
 impl WindowsMonitor {
     pub fn new(verbose: bool) -> Self {
-        Self {
-            verbose,
-            running: Arc::new(AtomicBool::new(false)),
-        }
+        Self { verbose }
     }
 }
 
@@ -44,73 +37,41 @@ impl WindowMonitor for WindowsMonitor {
         if self.verbose {
             println!("Starting Windows window monitor");
         }
-        self.running.store(true, Ordering::SeqCst);
         unsafe {
             G_VERBOSE = self.verbose;
+            let h_instance = GetModuleHandleA(None).unwrap_or_default();
+            let hook = SetWinEventHook(
+                EVENT_OBJECT_FOCUS,
+                EVENT_OBJECT_FOCUS,
+                h_instance,
+                Some(event_proc),
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT,
+            );
+            G_HOOK = Some(hook);
+
+            // Initial notification for the currently active window
+            handle_focus_change(GetForegroundWindow());
         }
-
-        let running = self.running.clone();
-        let handle = thread::spawn(move || {
-            unsafe {
-                G_THREAD_ID.store(thread::current().id().as_u32(), Ordering::SeqCst);
-                let h_instance = GetModuleHandleA(None).unwrap_or_default();
-                let hook = SetWinEventHook(
-                    EVENT_OBJECT_FOCUS,
-                    EVENT_OBJECT_FOCUS,
-                    h_instance,
-                    Some(event_proc),
-                    0,
-                    0,
-                    WINEVENT_OUTOFCONTEXT,
-                );
-                G_HOOK = Some(hook);
-
-                // Initial notification for the currently active window
-                handle_focus_change();
-
-                // Message loop
-                let mut msg = std::mem::MaybeUninit::uninit();
-                while running.load(Ordering::SeqCst) {
-                    let b_ret = windows::Win32::UI::WindowsAndMessaging::GetMessageA(
-                        msg.as_mut_ptr(),
-                        HWND(0),
-                        0,
-                        0,
-                    );
-                    if b_ret == BOOL(0) || b_ret == BOOL(-1) {
-                        break;
-                    }
-                    windows::Win32::UI::WindowsAndMessaging::TranslateMessage(msg.as_ptr());
-                    windows::Win32::UI::WindowsAndMessaging::DispatchMessageA(msg.as_ptr());
-                }
-
-                if let Some(hook) = G_HOOK {
-                    UnhookWinEvent(hook);
-                }
-            }
-        });
-        
-        // We don't want to block the main thread, so we'll just let the hook run in the background.
-        // The tray icon will keep the application alive.
         Ok(())
     }
 
     fn stop(&mut self) -> Result<(), Box<dyn Error>> {
-        self.running.store(false, Ordering::SeqCst);
-        if let Some(hook) = unsafe { G_HOOK.take() } {
+        if self.verbose {
+            println!("Stopping Windows window monitor");
+        }
+        let hook = unsafe { ptr::replace(&raw mut G_HOOK, None) };
+        if let Some(hook) = hook {
             unsafe {
                 UnhookWinEvent(hook);
-                let thread_id = G_THREAD_ID.load(Ordering::SeqCst);
-                if thread_id != 0 {
-                    PostThreadMessageA(thread_id, WM_QUIT, WPARAM(0), LPARAM(0));
-                }
             }
         }
         Ok(())
     }
 }
 
-extern "system" fn event_proc(
+unsafe extern "system" fn event_proc(
     _h_win_event_hook: HWINEVENTHOOK,
     _event: u32,
     hwnd: HWND,
@@ -119,20 +80,91 @@ extern "system" fn event_proc(
     _id_event_thread: u32,
     _dwms_event_time: u32,
 ) {
-    handle_focus_change();
+    handle_focus_change(hwnd);
 }
 
-fn handle_focus_change() {
-    if let Ok(Some(window_info)) = get_active_window_info() {
+fn handle_focus_change(hwnd: HWND) {
+    if let Ok(Some(window_info)) = get_window_info(hwnd) {
+        // Filter out Windows internal components and empty windows
+        if should_ignore_window(&window_info) {
+            unsafe {
+                if G_VERBOSE {
+                    println!("Ignoring internal window - Class: '{}', Title: '{}'", 
+                        window_info.app_class, window_info.title);
+                }
+            }
+            return;
+        }
+
+        // Check if this is the same window as last time to prevent feedback loops
+        let current_window = (window_info.app_class.clone(), window_info.title.clone());
+        unsafe {
+            if let Some(ref last_window) = LAST_WINDOW_INFO {
+                if *last_window == current_window {
+                    if G_VERBOSE {
+                        println!("Duplicate window event ignored - Class: '{}', Title: '{}'", 
+                            window_info.app_class, window_info.title);
+                    }
+                    return;
+                }
+            }
+            LAST_WINDOW_INFO = Some(current_window);
+        }
+
+        unsafe {
+            if G_VERBOSE {
+                println!("Window focus changed - Class: '{}', Title: '{}'", 
+                    window_info.app_class, window_info.title);
+            }
+        }
+        
         if let Err(e) = notifier::notify_qmk(&window_info, unsafe { G_VERBOSE }) {
             eprintln!("Failed to notify QMK: {}", e);
         }
     }
 }
 
-fn get_active_window_info() -> Result<Option<WindowInfo>, Box<dyn Error>> {
+fn should_ignore_window(window_info: &WindowInfo) -> bool {
+    // Filter out Windows internal components
+    let ignore_classes = [
+        "ForegroundStaging",
+        "XamlExplorerHostIslandWindow", 
+        "Windows.UI.Composition.DesktopWindowContentBridge",
+        "Windows.UI.Input.InputSite.WindowClass",
+        "TaskSwitcherWnd",
+        "TaskSwitcherOverlayWnd",
+        "Windows.UI.Core.CoreWindow",
+        "ApplicationFrameWindow", // UWP app frame (we want the actual content)
+    ];
+
+    // Ignore if class name matches internal components
+    if ignore_classes.iter().any(|&class| window_info.app_class == class) {
+        return true;
+    }
+
+    // Ignore windows with empty titles and certain class patterns
+    if window_info.title.is_empty() {
+        // Allow some specific classes even with empty titles (like some games or tools)
+        let allow_empty_title = [
+            "CASCADIA_HOSTING_WINDOW_CLASS", // Terminal apps
+            "Chrome_WidgetWin_1", // Chrome/Electron apps
+        ];
+        
+        if !allow_empty_title.iter().any(|&class| window_info.app_class == class) {
+            return true;
+        }
+    }
+
+    // Ignore very short titles that are likely not real applications
+    if window_info.title.len() < 2 && !window_info.title.is_empty() {
+        return true;
+    }
+
+    false
+}
+
+fn get_window_info(hwnd: HWND) -> Result<Option<WindowInfo>, Box<dyn Error>> {
     unsafe {
-        let hwnd = GetForegroundWindow();
         if hwnd.0 == 0 {
             return Ok(None);
         }
