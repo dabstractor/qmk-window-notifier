@@ -5,6 +5,7 @@ use crate::platforms::WindowMonitor;
 use std::error::Error;
 use std::ffi::OsString;
 use std::os::windows::ffi::OsStringExt;
+use std::path::PathBuf;
 use std::ptr;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::System::LibraryLoader::GetModuleHandleA;
@@ -192,4 +193,51 @@ fn get_window_info(hwnd: HWND) -> Result<Option<WindowInfo>, Box<dyn Error>> {
 
         Ok(Some(WindowInfo::new(app_class, title)))
     }
+}
+
+// Windows-specific configuration path handling
+pub fn get_config_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    // Primary location: %APPDATA%\QMK Window Notifier\config.toml
+    if let Ok(app_data) = std::env::var("APPDATA") {
+        paths.push(
+            PathBuf::from(app_data)
+                .join("QMK Window Notifier")
+                .join("config.toml"),
+        );
+    }
+
+    // Secondary location: %LOCALAPPDATA%\QMK Window Notifier\config.toml
+    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+        paths.push(
+            PathBuf::from(local_app_data)
+                .join("QMK Window Notifier")
+                .join("config.toml"),
+        );
+    }
+
+    // Fallback to executable directory
+    if let Ok(exe_path) = std::env::current_exe() {
+        if let Some(exe_dir) = exe_path.parent() {
+            paths.push(exe_dir.join("config.toml"));
+        }
+    }
+
+    paths
+}
+
+// Create Windows configuration directory
+pub fn create_config_dir() -> Result<PathBuf, Box<dyn Error>> {
+    // Use %APPDATA% for user configuration
+    let config_dir = if let Ok(app_data) = std::env::var("APPDATA") {
+        PathBuf::from(app_data).join("QMK Window Notifier")
+    } else {
+        return Err("Could not determine APPDATA directory".into());
+    };
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&config_dir)?;
+    
+    Ok(config_dir)
 }

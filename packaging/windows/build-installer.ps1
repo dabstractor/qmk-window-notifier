@@ -125,7 +125,7 @@ Write-Info "Building Windows installer..."
 try {
     # Compile WiX source
     Write-Info "Compiling WiX source..."
-    & candle.exe installer.wxs
+    & candle.exe installer.wxs -ext WixUtilExtension
     
     if ($LASTEXITCODE -ne 0) {
         throw "WiX compilation failed"
@@ -165,10 +165,10 @@ Write-Success "Build completed successfully!"
 Write-Info ""
 Write-Info "Installation Instructions:"
 Write-Info "1. Run QMK-Window-Notifier-Setup.msi as Administrator"
-Write-Info "2. The service will be installed and started automatically"
-Write-Info "3. System tray icon should appear after installation"
+Write-Info "2. The application will be installed and added to Windows startup"
+Write-Info "3. System tray icon will appear immediately and on each Windows startup"
 Write-Info ""
-Write-Info "Service Management:"
-Write-Info "- View service: services.msc (look for 'QMK Window Notifier')"
-Write-Info "- Manual control: sc start/stop QMKWindowNotifier"
-Write-Info "- Logs: Windows Event Viewer > Applications and Services Logs"
+Write-Info "Application Management:"
+Write-Info "- Start manually: Run 'QMK Window Notifier' from Start Menu"
+Write-Info "- Exit: Right-click the system tray icon and select 'Quit'"
+Write-Info "- Startup: Managed through Windows startup folder"

@@ -74,9 +74,10 @@ fn run() -> Result<(), Box<dyn Error>> {
         return reload_config(verbose);
     }
 
-    // Windows service-specific arguments
+    // Platform-specific behavior
     #[cfg(target_os = "windows")]
     {
+        // Windows service-specific arguments
         if args.iter().any(|arg| arg == "--service") {
             info!("Starting as Windows service");
             return service::run_service();
@@ -103,78 +104,71 @@ fn run() -> Result<(), Box<dyn Error>> {
             info!("Starting as tray application");
             return run_tray_app(verbose);
         }
+
+        // Default behavior on Windows: run as tray app
+        info!("Starting as tray application (default)");
+        return run_tray_app(verbose);
     }
 
-    // Create the appropriate monitor for the current platform
+    // Non-Windows platforms use the original logic
+    #[cfg(not(target_os = "windows"))]
+    {
+        let monitor = platforms::create_monitor(verbose)?;
 
-    let monitor = platforms::create_monitor(verbose)?;
+        println!("QMK Window Notifier started");
+        if verbose {
+            println!("Verbose logging enabled");
+            println!("Using platform: {}", monitor.platform_name());
+        }
 
-    println!("QMK Window Notifier started");
-    if verbose {
-        println!("Verbose logging enabled");
-        println!("Using platform: {}", monitor.platform_name());
-    }
+        // Set up signal handling for immediate exit
+        ctrlc::set_handler(move || {
+            println!("\nReceived Ctrl+C, shutting down...");
+            // Force immediate exit - no waiting or additional complexity
+            process::exit(0);
+        })?;
 
-    // Set up signal handling for immediate exit
-    ctrlc::set_handler(move || {
-        println!("\nReceived Ctrl+C, shutting down...");
-        // Force immediate exit - no waiting or additional complexity
-        process::exit(0);
-    })?;
+        // Start the monitor in a separate thread for non-Hyprland Linux and macOS
+        #[cfg(any(
+            all(target_os = "linux", not(feature = "hyprland")),
+            target_os = "macos"
+        ))]
+        let monitor_thread = std::thread::spawn(move || {
+            if let Err(e) = monitor.start() {
+                eprintln!("Monitor error: {}", e);
+            }
+        });
 
-    // Start the monitor in a separate thread for non-Hyprland Linux and macOS
-    #[cfg(any(
-        all(target_os = "linux", not(feature = "hyprland")),
-        target_os = "macos"
-    ))]
-    let monitor_thread = std::thread::spawn(move || {
+        // Setup tray icon for all platforms except Hyprland
+        #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
+        tray::setup_tray();
+
+        #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
+        if verbose {
+            println!("System tray icon initialized");
+        }
+
+        // Join the monitor thread for platforms where it was spawned
+        #[cfg(any(
+            all(target_os = "linux", not(feature = "hyprland")),
+            target_os = "macos"
+        ))]
+        if let Err(e) = monitor_thread.join() {
+            eprintln!("Error joining Monitor thread: {:?}", e);
+        }
+
+        // For Hyprland, start the monitor on the main thread
+        #[cfg(all(target_os = "linux", feature = "hyprland"))]
         if let Err(e) = monitor.start() {
             eprintln!("Monitor error: {}", e);
         }
-    });
 
-    // On Windows, start the monitor before setting up the tray
-    #[cfg(target_os = "windows")]
-    {
-        let mut monitor = monitor;
-        if let Err(e) = monitor.start() {
-            eprintln!("Failed to start Windows monitor: {}", e);
-            return Err(e);
-        }
-        if verbose {
-            println!("Windows monitor started successfully");
-        }
+        // If we reach here, the monitor stopped on its own
+        println!("Monitor stopped, exiting.");
     }
 
-    // Setup tray icon for all platforms except Hyprland
-    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
-    tray::setup_tray();
-
-    #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
-    if verbose {
-        println!("System tray icon initialized");
-    }
-
-    // Join the monitor thread for platforms where it was spawned
-    #[cfg(any(
-        all(target_os = "linux", not(feature = "hyprland")),
-        target_os = "macos"
-    ))]
-    if let Err(e) = monitor_thread.join() {
-        eprintln!("Error joining Monitor thread: {:?}", e);
-    }
-
-    // For Hyprland, start the monitor on the main thread
-    #[cfg(all(target_os = "linux", feature = "hyprland"))]
-    if let Err(e) = monitor.start() {
-        eprintln!("Monitor error: {}", e);
-    }
-
-    // If we reach here, the monitor stopped on its own
-    println!("Monitor stopped, exiting.");
-
-    // Clean exit
-    Ok(())
+    #[cfg(not(target_os = "windows"))]
+    return Ok(());
 }
 
 fn print_help() {
@@ -201,7 +195,46 @@ fn print_help() {
 }
 
 #[cfg(target_os = "windows")]
+fn is_already_running() -> Result<bool, Box<dyn Error>> {
+    use single_instance::SingleInstance;
+    
+    // Create a single instance using a unique app ID
+    // This will create a named mutex under the hood
+    static mut INSTANCE: Option<SingleInstance> = None;
+    
+    let instance = SingleInstance::new("qmk-window-notifier-app-id").map_err(|e| -> Box<dyn Error> {
+        format!("Failed to create single instance: {}", e).into()
+    })?;
+    
+    // Check if this is the first instance
+    if !instance.is_single() {
+        // Another instance is already running
+        return Ok(true);
+    }
+    
+    // Store the instance to keep it alive for the duration of the program
+    unsafe {
+        INSTANCE = Some(instance);
+    }
+    
+    // This is the first/only instance
+    Ok(false)
+}
+
+#[cfg(target_os = "windows")]
 fn run_tray_app(verbose: bool) -> Result<(), Box<dyn Error>> {
+    // Check for existing instance (singleton)
+    if is_already_running()? {
+        if verbose {
+            println!("Another instance is already running, exiting");
+        }
+        info!("Another instance is already running, exiting");
+        return Ok(());
+    }
+
+    if verbose {
+        println!("No other instance detected, starting application");
+    }
     info!("Starting QMK Window Notifier as tray application");
     
     // Create the monitor
@@ -211,16 +244,14 @@ fn run_tray_app(verbose: bool) -> Result<(), Box<dyn Error>> {
         info!("Using platform: {}", monitor.platform_name());
     }
 
-    // Start the monitor in a separate thread
-    let _monitor_thread = std::thread::spawn(move || {
-        let mut monitor = monitor;
-        if let Err(e) = monitor.start() {
-            error!("Monitor error: {}", e);
-        }
-    });
-
+    // On Windows, start the monitor before setting up the tray (like original working code)
+    let mut monitor = monitor;
+    if let Err(e) = monitor.start() {
+        error!("Failed to start Windows monitor: {}", e);
+        return Err(e);
+    }
     if verbose {
-        info!("Windows monitor started successfully");
+        println!("Windows monitor started successfully");
     }
 
     // Setup tray icon - this will block until the user quits
@@ -307,7 +338,10 @@ fn create_config() -> Result<(), Box<dyn Error>> {
     #[cfg(target_os = "linux")]
     let config_dir = platforms::create_config_dir()?;
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(target_os = "windows")]
+    let config_dir = platforms::create_config_dir()?;
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
     let config_dir = {
         // Default implementation for other platforms
         if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {
