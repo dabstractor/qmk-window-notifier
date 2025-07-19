@@ -1,29 +1,47 @@
 # QMK Window Notifier
 
-A specialized Rust application that detects active window changes in supported environments (Hyprland and macOS) and sends this information to QMK keyboards, enabling dynamic layer switching and command execution based on the active application.
+A cross-platform Rust application that detects active window changes and sends this information to QMK keyboards, enabling dynamic layer switching and command execution based on the active application.
 
 ## Overview
 
-QMK Window Notifier bridges the gap between supported environments (Hyprland and macOS) and QMK-powered keyboards. It monitors window focus changes and transmits application class and title information to your keyboard, enabling context-aware layer switching and feature toggling.
+QMK Window Notifier bridges the gap between your operating system and QMK-powered keyboards. It monitors window focus changes and transmits application class and title information to your keyboard, enabling context-aware layer switching and feature toggling.
 
-This tool is part of a broader ecosystem I've created:
+This tool is part of a broader ecosystem:
 - **[qmk-notifier](https://github.com/dabstractor/qmk-notifier)**: QMK module that receives commands and handles layer/feature toggling on your keyboard
 - **[qmk_notifier](https://github.com/dabstractor/qmk_notifier)**: Desktop application that sends commands to your keyboard via Raw HID
-- **qmk-window-notifier** (this tool): Application that detects window changes in supported environments
+- **qmk-window-notifier** (this tool): Application that detects window changes across platforms
 
 ## Features
 
-- Seamless integration with Hyprland's event system and macOS
-- Real-time window focus change detection
-- Automatic transmission of application class and window title to QMK keyboards
-- Minimal resource footprint
-- Verbose logging option for debugging
+- **Cross-Platform Support**:
+  - Windows: Silent background application with system tray icon
+  - Linux: Seamless integration with Hyprland's event system
+  - macOS: Native window focus detection
+
+- **Core Functionality**:
+  - Real-time window focus change detection
+  - Automatic transmission of application class and window title to QMK keyboards
+  - Minimal resource footprint
+  - Verbose logging option for debugging
+
+- **Windows-Specific Features**:
+  - Silent background operation (no console window)
+  - System tray icon for easy access and control
+  - Automatic startup with Windows
+  - Singleton application (prevents multiple instances)
+  - Professional MSI installer
+
+- **Configuration**:
+  - User-configurable settings
+  - Automatic configuration reload
 
 ## Installation
 
-### Dependencies
+### Windows
 
-- [qmk-notifier](https://github.com/dabstractor/qmk-notifier) must be installed into your QMK keyboard's main directory alongside the `keymap` directory
+1. Download the MSI installer from the [releases page](https://github.com/dabstractor/qmk-window-notifier/releases)
+2. Run the installer as Administrator
+3. The application will start automatically and be added to Windows startup
 
 ### Arch Linux
 
@@ -33,7 +51,7 @@ cd qmk-window-notifier/packaging/linux/arch
 makepkg -si
 ```
 
-### Other linux systems
+### Other Linux Systems
 Download the release binary from the [releases page](https://github.com/dabstractor/qmk-window-notifier/releases)
 
 If you want it to start automatically, install the service file and start the service:
@@ -71,19 +89,36 @@ cd qmk-window-notifier
 cargo build --release
 
 # The binary will be available at target/release/qmk-window-notifier
-# Copy it to a location in your PATH
+```
+
+#### Platform-Specific Installation Steps
+
+**Windows:**
+```powershell
+# Copy to Program Files
+Copy-Item target\release\qmk-window-notifier.exe "$env:ProgramFiles\QMK Window Notifier\"
+
+# Add to startup (optional)
+$startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+$shortcutPath = "$startupFolder\QMK Window Notifier.lnk"
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($shortcutPath)
+$shortcut.TargetPath = "$env:ProgramFiles\QMK Window Notifier\qmk-window-notifier.exe"
+$shortcut.Arguments = "--tray-app"
+$shortcut.Save()
+```
+
+**Linux:**
+```bash
+# Copy to a location in your PATH
 sudo cp target/release/qmk-window-notifier /usr/local/bin/
 
-
-# Create udev rules file (Linux only)
+# Create udev rules file
 sudo cp packaging/linux/udev/99-qmk-window-notifier.rules.template /etc/udev/rules.d/99-qmk-window-notifier.rules.template
 
-# Create systemd service file (Linux only)
+# Create systemd service file
 mkdir -p ~/.config/systemd/user/
 cp packaging/linux/systemd/qmk-window-notifier.service.template ~/.config/systemd/user/qmk-window-notifier.service
-
-qmk-window-notifier -c
-qmk-window-notifier -r
 ```
 
 ## Configuration
@@ -96,7 +131,9 @@ Create a configuration file with:
 qmk-window-notifier -c
 ```
 
-This will create a configuration file at `~/.config/qmk-notifier/config.toml` with default values.
+This will create a configuration file at:
+- Windows: `%APPDATA%\qmk-notifier\config.toml`
+- Linux/macOS: `~/.config/qmk-notifier/config.toml`
 
 ### Reloading Configuration
 
@@ -104,17 +141,26 @@ After changing the configuration file, reload it with:
 
 ```bash
 qmk-window-notifier -r
+```
+
+On Linux, also reload udev rules:
+```bash
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
-This will:
-1. Read your configuration file
-2. Update the udev rules with your keyboard's vendor and product IDs
-3. Reload the udev rules
-
-**Important:** You must reload the configuration whenever you change your keyboard's vendor ID or product ID in the config file.
-
 ## Usage
+
+### Windows
+
+The application starts automatically with Windows and runs in the background with a system tray icon.
+
+- **Start manually**: Run "QMK Window Notifier" from Start Menu
+- **Exit**: Right-click the system tray icon and select "Quit"
+- **Command-line options**:
+  - `--tray-app`: Run as tray application (default)
+  - `-v, --verbose`: Enable verbose logging
+  - `-c, --config`: Create a configuration file
+  - `-r, --reload`: Reload configuration
 
 ### MacOS
 
@@ -128,12 +174,23 @@ If not, you can start it manually:
 qmk-window-notifier & disown
 ```
 
+## Technical Requirements
 
-The application automatically:
-1. Verifies it's running within a supported environment
-2. Sets up event listeners for window focus changes
-3. Captures application class and title information
-4. Formats and sends this data to your QMK keyboard using the qmk_notifier library
+### Windows Service Implementation
+
+- **Background Operation**: Runs silently without console windows
+- **Automatic Startup**: Starts with Windows via startup folder
+- **System Tray Integration**: Provides user interface through system tray icon
+- **Singleton Pattern**: Prevents multiple instances from running simultaneously
+- **Window Monitoring**: Properly detects window focus changes
+- **Installer**: Professional MSI installer with automatic upgrade handling
+
+### Core Functionality
+
+- **Window Detection**: Monitors active window changes across platforms
+- **QMK Integration**: Sends window information to QMK keyboards
+- **Configuration Management**: User-configurable settings
+- **Error Handling**: Graceful handling of errors and edge cases
 
 ## Integration with QMK
 
@@ -144,37 +201,17 @@ This tool works in conjunction with:
 When a window focus change is detected, this application formats the data as:
 `{application_class}{GS}{window_title}` where `{GS}` is the Group Separator character (0x1D).
 
-## Technical Details
+## Default Configuration
 
-- Written in Rust for performance and reliability
-- Uses the Hyprland crate to interact with Hyprland's IPC (if running on Wayland)
-- Utilizes Hyprland's event system to detect window changes (if running on Wayland)
-- Handles error conditions gracefully (e.g., when a supported environment is not running)
-- Minimal overhead and resource usage
-
-
-Your QMK keyboard should be detected when plugged in and the service should start and stop automatically.
-
-## Other Keyboards
-If your QMK keyboard uses a different vendor or product ID, or has a different usage_page or usage value, you can configure them in the configuration file at $XDG_CONFIG_HOME/qmk-notifier/config.toml. After changing it, reload the udev rules (linux only):
-```
-qmk-window-notifier -r
-```
-The default configuration file looks like:
-```
+```toml
 # Your QMK keyboard's vendor ID (in hex)
 vendor_id = 0xfeed
 
 # Your QMK keyboard's product ID (in hex)
 product_id = 0x0000
 
-# Usage Page
-usage_page = 0xFF60
-
-# Usage
-usage = 0x61
+# Add any other configuration options here
 ```
-
 
 ## Example Use Cases
 
@@ -190,4 +227,3 @@ Contributions are welcome! Feel free to submit issues or pull requests on GitHub
 ## License
 
 [MIT License](LICENSE)
-
