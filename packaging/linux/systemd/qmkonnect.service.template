@@ -1,17 +1,17 @@
 [Unit]
-Description=QMK Window Notifier
+Description=QMKonnect
 After=graphical-session.target
 
 # This handles the device dependency correctly:
 # 1. At boot, it waits for the keyboard to be ready.
 # 2. On unplug, it stops the service.
-BindsTo=dev-qmk_window_notifier_device.device
+BindsTo=dev-qmkonnect_device.device
 
 [Service]
 # Wait for the Wayland socket to exist
 ExecStartPre=/bin/sh -c 'while ! [ -S "$XDG_RUNTIME_DIR/wayland-1" ]; do sleep 0.1; done'
 
-ExecStart=/usr/bin/qmk-window-notifier
+ExecStart=/usr/bin/qmkonnect
 
 [Install]
 # Hook the service into the user login process.

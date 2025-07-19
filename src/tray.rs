@@ -39,7 +39,7 @@ pub fn setup_tray() {
         &PredefinedMenuItem::about(
             None,
             Some(AboutMetadata {
-                name: Some("QMK Window Notifier".to_string()),
+                name: Some("QMKonnect".to_string()),
                 copyright: Some("Copyright Mulletware 2025".to_string()),
                 ..Default::default()
             }),
@@ -82,7 +82,7 @@ pub fn setup_tray() {
                 tray_icon = Some(
                     TrayIconBuilder::new()
                         .with_menu(Box::new(tray_menu.clone()))
-                        .with_tooltip("QMK Window Notifier")
+                        .with_tooltip("QMKonnect")
                         .with_icon(icon)
                         .build()
                         .unwrap(),
@@ -289,7 +289,7 @@ fn show_settings_dialog(config_path: &std::path::Path) -> Result<(), Box<dyn std
         if let Some((vendor_id, product_id)) = result {
             // Save to file
             let config_content = format!(
-                "# QMK Window Notifier Configuration\n\n# Your QMK keyboard's vendor ID (in hex)\nvendor_id = 0x{:04x}\n\n# Your QMK keyboard's product ID (in hex)\nproduct_id = 0x{:04x}\n\n# Add any other configuration options here\n",
+                "# QMKonnect Configuration\n\n# Your QMK keyboard's vendor ID (in hex)\nvendor_id = 0x{:04x}\n\n# Your QMK keyboard's product ID (in hex)\nproduct_id = 0x{:04x}\n\n# Add any other configuration options here\n",
                 vendor_id, product_id
             );
 
@@ -520,7 +520,7 @@ fn show_error_message(message: &str) {
     
     unsafe {
         let error_msg = to_wide_string(message);
-        let title = to_wide_string("QMK Window Notifier - Error");
+        let title = to_wide_string("QMKonnect - Error");
         MessageBoxW(
             HWND(0), 
             windows::core::PCWSTR(error_msg.as_ptr()), 

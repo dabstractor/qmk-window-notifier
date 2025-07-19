@@ -2329,7 +2329,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "qmk-window-notifier"
+name = "qmk_notifier"
+version = "0.1.0"
+source = "git+https://github.com/dabstractor/qmk_notifier#56a01bd296c010fd79dd26dd406b3dda5818d385"
+dependencies = [
+ "clap",
+ "dirs 5.0.1",
+ "hidapi",
+ "serde",
+ "toml 0.8.20",
+]
+
+[[package]]
+name = "qmkonnect"
 version = "0.1.0"
 dependencies = [
  "block",
@@ -2359,18 +2371,6 @@ dependencies = [
  "windows 0.52.0",
  "windows-service",
  "zbus",
-]
-
-[[package]]
-name = "qmk_notifier"
-version = "0.1.0"
-source = "git+https://github.com/dabstractor/qmk_notifier#56a01bd296c010fd79dd26dd406b3dda5818d385"
-dependencies = [
- "clap",
- "dirs 5.0.1",
- "hidapi",
- "serde",
- "toml 0.8.20",
 ]
 
 [[package]]

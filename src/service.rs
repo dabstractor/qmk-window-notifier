@@ -16,7 +16,7 @@ use windows_service::service::{
 use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
 use windows_service::{define_windows_service, service_dispatcher};
 
-const SERVICE_NAME: &str = "QMKWindowNotifier";
+const SERVICE_NAME: &str = "QMKonnect";
 const SERVICE_TYPE: ServiceType = ServiceType::OWN_PROCESS;
 
 pub struct ServiceContext {
@@ -39,7 +39,7 @@ static SERVICE_CONTEXT: Mutex<Option<ServiceContext>> = Mutex::new(None);
 define_windows_service!(ffi_service_main, service_main);
 
 pub fn run_service() -> Result<(), Box<dyn Error>> {
-    info!("Starting QMK Window Notifier service dispatcher");
+    info!("Starting QMKonnect service dispatcher");
     service_dispatcher::start(SERVICE_NAME, ffi_service_main)?;
     Ok(())
 }
@@ -51,7 +51,7 @@ fn service_main(_arguments: Vec<OsString>) {
 }
 
 fn run_service_impl() -> Result<(), Box<dyn Error>> {
-    info!("QMK Window Notifier service starting");
+    info!("QMKonnect service starting");
 
     let (shutdown_tx, shutdown_rx) = mpsc::channel();
     
@@ -186,7 +186,7 @@ pub fn install_service() -> Result<(), Box<dyn Error>> {
             SERVICE_NAME,
             &format!("binPath=\"{}\" --service", exe_path_str),
             "start=auto",
-            "DisplayName=QMK Window Notifier",
+            "DisplayName=QMKonnect",
             "depend=Tcpip",
         ])
         .output()?;

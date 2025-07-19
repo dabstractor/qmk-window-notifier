@@ -5,7 +5,7 @@ param(
 )
 
 if ($Help) {
-    Write-Host "QMK Window Notifier Installer Build Script"
+    Write-Host "QMKonnect Installer Build Script"
     Write-Host ""
     Write-Host "Usage: .\build-installer.ps1 [OPTIONS]"
     Write-Host ""
@@ -55,7 +55,7 @@ function Test-WixInstalled {
 }
 
 # Main script
-Write-Info "QMK Window Notifier Installer Build Script"
+Write-Info "QMKonnect Installer Build Script"
 Write-Info "=========================================="
 
 # Check WiX installation
@@ -91,7 +91,7 @@ if (-not $SkipBuild) {
         }
         
         # Verify executable exists
-        $exePath = "target/release/qmk-window-notifier.exe"
+        $exePath = "target/release/qmkonnect.exe"
         if (-not (Test-Path $exePath)) {
             throw "Executable not found at $exePath"
         }
@@ -111,7 +111,7 @@ else {
     Write-Info "Skipping Rust build (as requested)"
     
     # Verify executable exists
-    $exePath = "../../target/release/qmk-window-notifier.exe"
+    $exePath = "../../target/release/qmkonnect.exe"
     if (-not (Test-Path $exePath)) {
         Write-Error "Executable not found at $exePath"
         Write-Error "Please build the application first or remove -SkipBuild flag"
@@ -133,7 +133,7 @@ try {
     
     # Create MSI
     Write-Info "Creating MSI package..."
-    & light.exe installer.wixobj -ext WixUIExtension -ext WixUtilExtension -out "QMK-Window-Notifier-Setup.msi"
+    & light.exe installer.wixobj -ext WixUIExtension -ext WixUtilExtension -out "qmkonnect-Setup.msi"
     
     if ($LASTEXITCODE -ne 0) {
         throw "MSI creation failed"
@@ -143,10 +143,10 @@ try {
     Remove-Item "installer.wixobj" -ErrorAction SilentlyContinue
     Remove-Item "*.wixpdb" -ErrorAction SilentlyContinue
     
-    Write-Success "Installer created successfully: QMK-Window-Notifier-Setup.msi"
+    Write-Success "Installer created successfully: qmkonnect-Setup.msi"
     
     # Show file info
-    $msiFile = Get-Item "QMK-Window-Notifier-Setup.msi"
+    $msiFile = Get-Item "qmkonnect-Setup.msi"
     Write-Info "File size: $([math]::Round($msiFile.Length / 1MB, 2)) MB"
     Write-Info "Created: $($msiFile.CreationTime)"
     
@@ -164,11 +164,11 @@ catch {
 Write-Success "Build completed successfully!"
 Write-Info ""
 Write-Info "Installation Instructions:"
-Write-Info "1. Run QMK-Window-Notifier-Setup.msi as Administrator"
+Write-Info "1. Run qmkonnect-Setup.msi as Administrator"
 Write-Info "2. The application will be installed and added to Windows startup"
 Write-Info "3. System tray icon will appear immediately and on each Windows startup"
 Write-Info ""
 Write-Info "Application Management:"
-Write-Info "- Start manually: Run 'QMK Window Notifier' from Start Menu"
+Write-Info "- Start manually: Run 'QMKonnect' from Start Menu"
 Write-Info "- Exit: Right-click the system tray icon and select 'Quit'"
 Write-Info "- Startup: Managed through Windows startup folder"

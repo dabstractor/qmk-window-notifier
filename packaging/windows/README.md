@@ -1,4 +1,4 @@
-# Windows Service Installer for QMK Window Notifier
+# Windows Service Installer for QMKonnect
 
 This directory contains the Windows installer configuration using WiX Toolset. The installer creates a proper Windows service that runs silently in the background without any console windows.
 
@@ -40,7 +40,7 @@ cd packaging\windows
 candle.exe installer.wxs
 
 # 3. Create MSI
-light.exe installer.wixobj -ext WixUIExtension -out QMK-Window-Notifier-Setup.msi
+light.exe installer.wixobj -ext WixUIExtension -out qmkonnect-Setup.msi
 ```
 
 ## Installer Features
@@ -69,32 +69,32 @@ After installation, the service can be managed through:
 
 ### Windows Services Panel
 - Open `services.msc`
-- Look for "QMK Window Notifier"
+- Look for "QMKonnect"
 - Right-click for Start/Stop/Restart options
 
 ### Command Line
 ```cmd
 # Start service
-sc start QMKWindowNotifier
+sc start QMKonnect
 
 # Stop service
-sc stop QMKWindowNotifier
+sc stop QMKonnect
 
 # Query service status
-sc query QMKWindowNotifier
+sc query QMKonnect
 ```
 
 ### Application Commands
 ```cmd
 # Install service manually
-qmk-window-notifier.exe --install-service
+qmkonnect.exe --install-service
 
 # Uninstall service manually
-qmk-window-notifier.exe --uninstall-service
+qmkonnect.exe --uninstall-service
 
 # Start/stop service manually
-qmk-window-notifier.exe --start-service
-qmk-window-notifier.exe --stop-service
+qmkonnect.exe --start-service
+qmkonnect.exe --stop-service
 ```
 
 ## Files Included
@@ -107,7 +107,7 @@ qmk-window-notifier.exe --stop-service
 
 ## Output
 
-The build process creates `QMK-Window-Notifier-Setup.msi` which can be distributed to end users.
+The build process creates `qmkonnect-Setup.msi` which can be distributed to end users.
 
 ## User Experience
 
@@ -122,7 +122,7 @@ After installation:
 The service logs events to the Windows Event Log:
 - Open Event Viewer
 - Navigate to "Applications and Services Logs"
-- Look for "QMK Window Notifier" entries
+- Look for "QMKonnect" entries
 
 ## Troubleshooting
 
@@ -133,12 +133,12 @@ The service logs events to the Windows Event Log:
 
 ### Build Errors
 - Ensure the Rust application builds successfully with `cargo build --release`
-- Check that `target/release/qmk-window-notifier.exe` exists
+- Check that `target/release/qmkonnect.exe` exists
 - Verify all file paths in `installer.wxs` are correct
 
 ### Service Issues
 - Check Windows Event Log for error messages
-- Verify service is installed: `sc query QMKWindowNotifier`
+- Verify service is installed: `sc query QMKonnect`
 - Try manual service commands for debugging
 - Ensure installer was run as Administrator
 
