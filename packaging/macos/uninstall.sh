@@ -2,13 +2,13 @@
 # Full path uninstaller - handles app name with spaces
 
 # Stop and remove LaunchAgent
-launchctl remove io.mulletware.qmk-window-notifier
-rm -f ~/Library/LaunchAgents/io.mulletware.qmk-window-notifier.plist
+launchctl remove io.mulletware.qmkonnect
+rm -f ~/Library/LaunchAgents/io.mulletware.qmkonnect.plist
 
 # Remove app bundle
-sudo rm -rf "/Applications/QMK Window Notifier.app"
+sudo rm -rf "/Applications/QMKonnect.app"
 
 # Remove logs
-rm -f /tmp/qmk-window-notifier.{out,err}.log
+rm -f /tmp/qmkonnect.{out,err}.log
 
-echo "✅ QMK Window Notifier completely uninstalled"
+echo "✅ QMKonnect completely uninstalled"

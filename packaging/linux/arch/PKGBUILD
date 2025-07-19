@@ -1,16 +1,16 @@
 # Maintainer: Your Name <your.email@example.com>
-pkgname=qmk-window-notifier
+pkgname=qmkonnect
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="A notification daemon for QMK keyboards"
 arch=('x86_64')
-url="https://github.com/dabstractor/qmk-window-notifier"
+url="https://github.com/dabstractor/qmkonnect"
 license=('MIT')
 depends=('systemd' 'hidapi' 'libusb')
 makedepends=('cargo' 'rust' 'libx11' 'libxcb' 'systemd-libs' 'pkg-config')
-backup=("etc/udev/rules.d/99-qmk-window-notifier.rules.template"
-        "usr/lib/systemd/user/qmk-window-notifier.service.template")
-install=qmk-window-notifier.install
+backup=("etc/udev/rules.d/99-qmkonnect.rules.template"
+        "usr/lib/systemd/user/qmkonnect.service.template")
+install=qmkonnect.install
 options=(!strip)
 
 build() {
@@ -25,18 +25,18 @@ package() {
   cd "$srcdir/.."
 
   # Install binary
-  install -Dm755 "../../../target/release/qmk-window-notifier" "$pkgdir/usr/bin/qmk-window-notifier"
+  install -Dm755 "../../../target/release/qmkonnect" "$pkgdir/usr/bin/qmkonnect"
 
   # Install udev rule template
-  install -Dm644 "../udev/99-qmk-window-notifier.rules.template" "$pkgdir/etc/udev/rules.d/99-qmk-window-notifier.rules.template"
+  install -Dm644 "../udev/99-qmkonnect.rules.template" "$pkgdir/etc/udev/rules.d/99-qmkonnect.rules.template"
 
   # Install systemd service template
-  install -Dm644 "../systemd/qmk-window-notifier.service.template" "$pkgdir/usr/lib/systemd/user/qmk-window-notifier.service.template"
+  install -Dm644 "../systemd/qmkonnect.service.template" "$pkgdir/usr/lib/systemd/user/qmkonnect.service.template"
 
   # Create directory for the wrapper script
-  mkdir -p "$pkgdir/usr/libexec/qmk-window-notifier"
+  mkdir -p "$pkgdir/usr/libexec/qmkonnect"
 
   # Install wrapper script with executable permissions
-  # install -Dm755 "../qmk-window-notifier.sh" "$pkgdir/usr/libexec/qmk-window-notifier/qmk-window-notifier.sh"
+  # install -Dm755 "../qmkonnect.sh" "$pkgdir/usr/libexec/qmkonnect/qmkonnect.sh"
 
 }

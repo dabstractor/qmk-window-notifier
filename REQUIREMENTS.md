@@ -1,6 +1,6 @@
-# QMK Window Notifier - Technical Requirements
+# QMKonnect - Technical Requirements
 
-This document outlines the technical requirements and specifications for the QMK Window Notifier application.
+This document outlines the technical requirements and specifications for the QMKonnect application.
 
 ## Core Requirements
 

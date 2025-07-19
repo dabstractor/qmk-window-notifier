@@ -38,7 +38,7 @@ pub fn update_udev_rules(
     product_id: String,
     verbose: bool,
 ) -> Result<(), Box<dyn Error>> {
-    let rules_path = Path::new("/etc/udev/rules.d/99-qmk-window-notifier.rules");
+    let rules_path = Path::new("/etc/udev/rules.d/99-qmkonnect.rules");
 
     if verbose {
         println!("Updating udev rules at {}", rules_path.display());
@@ -81,7 +81,7 @@ pub fn update_udev_rules(
         );
 
     // Write back to the file with sudo
-    let temp_path = "/tmp/99-qmk-window-notifier.rules.tmp";
+    let temp_path = "/tmp/99-qmkonnect.rules.tmp";
     fs::write(temp_path, updated_rules)?;
 
     let output = Command::new("sudo")

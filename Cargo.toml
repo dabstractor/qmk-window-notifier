@@ -1,5 +1,5 @@
 [package]
-name = "qmk-window-notifier"
+name = "qmkonnect"
 version = "0.1.0"
 edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
@@ -63,7 +63,7 @@ hyprland = ["dep:hyprland"]
 macos = ["dep:objc", "dep:core-foundation", "dep:core-graphics", "dep:dispatch"]
 
 [[bin]]
-name = "qmk-window-notifier"
+name = "qmkonnect"
 path = "src/main.rs"
 
 # Optimize for size

@@ -18,7 +18,7 @@ use log::{error, info};
 #[cfg(target_os = "windows")]
 fn init_logging() -> Result<(), Box<dyn Error>> {
     // Try to initialize Windows Event Log first
-    match eventlog::init("QMK Window Notifier", log::Level::Info) {
+    match eventlog::init("QMKonnect", log::Level::Info) {
         Ok(()) => {
             info!("Windows Event Log initialized");
             Ok(())
@@ -125,7 +125,7 @@ fn run() -> Result<(), Box<dyn Error>> {
     {
         let monitor = platforms::create_monitor(verbose)?;
 
-        println!("QMK Window Notifier started");
+        println!("QMKonnect started");
         if verbose {
             println!("Verbose logging enabled");
             println!("Using platform: {}", monitor.platform_name());
@@ -182,8 +182,8 @@ fn run() -> Result<(), Box<dyn Error>> {
 }
 
 fn print_help() {
-    println!("QMK Window Notifier v{}", env!("CARGO_PKG_VERSION"));
-    println!("Usage: qmk-window-notifier [OPTIONS]");
+    println!("QMKonnect v{}", env!("CARGO_PKG_VERSION"));
+    println!("Usage: qmkonnect [OPTIONS]");
     println!("\nOptions:");
     println!("  -h, --help     Display this help message");
     println!("  -v, --verbose  Enable verbose logging");
@@ -215,7 +215,7 @@ fn is_already_running() -> Result<bool, Box<dyn Error>> {
     // This will create a named mutex under the hood
     static mut INSTANCE: Option<SingleInstance> = None;
     
-    let instance = SingleInstance::new("qmk-window-notifier-app-id").map_err(|e| -> Box<dyn Error> {
+    let instance = SingleInstance::new("qmkonnect-app-id").map_err(|e| -> Box<dyn Error> {
         format!("Failed to create single instance: {}", e).into()
     })?;
     
@@ -286,7 +286,7 @@ fn run_tray_app(verbose: bool) -> Result<(), Box<dyn Error>> {
     if verbose {
         println!("No other instance detected, starting application");
     }
-    info!("Starting QMK Window Notifier as tray application");
+    info!("Starting QMKonnect as tray application");
     
     // Create the monitor
     let monitor = platforms::create_monitor(verbose)?;

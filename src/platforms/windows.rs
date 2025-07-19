@@ -258,20 +258,20 @@ fn get_window_info(hwnd: HWND) -> Result<Option<WindowInfo>, Box<dyn Error>> {
 pub fn get_config_paths() -> Vec<PathBuf> {
     let mut paths = Vec::new();
 
-    // Primary location: %APPDATA%\QMK Window Notifier\config.toml
+    // Primary location: %APPDATA%\QMKonnect\config.toml
     if let Ok(app_data) = std::env::var("APPDATA") {
         paths.push(
             PathBuf::from(app_data)
-                .join("QMK Window Notifier")
+                .join("QMKonnect")
                 .join("config.toml"),
         );
     }
 
-    // Secondary location: %LOCALAPPDATA%\QMK Window Notifier\config.toml
+    // Secondary location: %LOCALAPPDATA%\QMKonnect\config.toml
     if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
         paths.push(
             PathBuf::from(local_app_data)
-                .join("QMK Window Notifier")
+                .join("QMKonnect")
                 .join("config.toml"),
         );
     }
@@ -290,7 +290,7 @@ pub fn get_config_paths() -> Vec<PathBuf> {
 pub fn create_config_dir() -> Result<PathBuf, Box<dyn Error>> {
     // Use %APPDATA% for user configuration
     let config_dir = if let Ok(app_data) = std::env::var("APPDATA") {
-        PathBuf::from(app_data).join("QMK Window Notifier")
+        PathBuf::from(app_data).join("QMKonnect")
     } else {
         return Err("Could not determine APPDATA directory".into());
     };

@@ -4,29 +4,29 @@ set -e
 cargo build --release
 
 # Create app bundle with human-readable name
-rm -rf "QMK Window Notifier.app"
+rm -rf "QMKonnect.app"
 
-mkdir -p "QMK Window Notifier.app/Contents/MacOS"
-cp ../../target/release/qmk-window-notifier "QMK Window Notifier.app/Contents/MacOS/"
+mkdir -p "QMKonnect.app/Contents/MacOS"
+cp ../../target/release/qmkonnect "QMKonnect.app/Contents/MacOS/"
 
-mkdir -p "QMK Window Notifier.app/Contents/Resources"
-cp Icon.icns "QMK Window Notifier.app/Contents/Resources/"
-cp ../Icon.png "QMK Window Notifier.app/Contents/Resources/"
+mkdir -p "QMKonnect.app/Contents/Resources"
+cp Icon.icns "QMKonnect.app/Contents/Resources/"
+cp ../Icon.png "QMKonnect.app/Contents/Resources/"
 
 # Generate Info.plist
-cat << EOF > "QMK Window Notifier.app/Contents/Info.plist"
+cat << EOF > "QMKonnect.app/Contents/Info.plist"
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>qmk-window-notifier</string>
+    <string>qmkonnect</string>
     <key>CFBundleIdentifier</key>
-    <string>io.mulletware.qmk-window-notifier</string>
+    <string>io.mulletware.qmkonnect</string>
     <key>CFBundleName</key>
-    <string>QMK Window Notifier</string>
+    <string>QMKonnect</string>
     <key>CFBundleDisplayName</key>
-    <string>QMK Window Notifier</string>
+    <string>QMKonnect</string>
     <key>LSBackgroundOnly</key>
     <true/>
     <key>CFBundleIconFile</key>
@@ -36,20 +36,20 @@ cat << EOF > "QMK Window Notifier.app/Contents/Info.plist"
 EOF
 
 # Code sign (handles spaces in app name)
-codesign --deep --force --sign - "QMK Window Notifier.app"
+codesign --deep --force --sign - "QMKonnect.app"
 
-echo "✅ App built: packaging/macos/QMK Window Notifier.app"
+echo "✅ App built: packaging/macos/QMKonnect.app"
 
 # Create a DMG file containing the app bundle
-DMG_NAME="QMK Window Notifier.dmg"
-VOLNAME="QMK Window Notifier Installer"
+DMG_NAME="QMKonnect.dmg"
+VOLNAME="QMKonnect Installer"
 TEMP_DIR=$(mktemp -d)
 
 # Create a symbolic link to /Applications
 ln -s "/Applications" "$TEMP_DIR/Applications"
 
 # Copy the app bundle to the temporary directory
-cp -R "QMK Window Notifier.app" "$TEMP_DIR/"
+cp -R "QMKonnect.app" "$TEMP_DIR/"
 
 # Create the DMG file with a compressed, read-only format (UDZO)
 hdiutil create -volname "$VOLNAME" -srcfolder "$TEMP_DIR" -ov -format UDZO "$DMG_NAME"

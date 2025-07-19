@@ -31,7 +31,7 @@ pub fn create_default_config(config_path: &Path) -> Result<(), Box<dyn Error>> {
     }
 
     // Create default config with hex values (no quotes)
-    let default_config = r#"# QMK Window Notifier Configuration
+    let default_config = r#"# QMKonnect Configuration
 
 # Your QMK keyboard's vendor ID (in hex)
 vendor_id = 0xfeed
@@ -54,7 +54,7 @@ product_id = 0x0000
         "Configuration created successfully at: {}",
         config_path.display()
     );
-    println!("Note: You'll need to reload configuration with 'qmk-window-notifier -r' to update udev rules.");
+    println!("Note: You'll need to reload configuration with 'qmkonnect -r' to update udev rules.");
 
     Ok(())
 }
