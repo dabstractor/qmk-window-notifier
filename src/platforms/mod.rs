@@ -4,6 +4,8 @@ mod linux;
 mod macos;
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(all(target_os = "linux", not(feature = "hyprland")))]
+mod x11;
 
 // Define WindowMonitor trait
 #[cfg(not(all(target_os = "linux", feature = "hyprland")))]
@@ -46,6 +48,12 @@ pub fn create_monitor(verbose: bool) -> Result<Box<dyn WindowMonitor>, Box<dyn E
         return Ok(Box::new(HyprlandMonitor::new(verbose)));
     }
 
+    #[cfg(all(target_os = "linux", not(feature = "hyprland")))]
+    {
+        use x11::X11Monitor;
+        return Ok(Box::new(X11Monitor::new(verbose)));
+    }
+
     #[cfg(target_os = "macos")]
     {
         use macos::MacOSMonitor;
@@ -58,10 +66,8 @@ pub fn create_monitor(verbose: bool) -> Result<Box<dyn WindowMonitor>, Box<dyn E
         return Ok(Box::new(WindowsMonitor::new(verbose)));
     }
 
-    // Fix unreachable code warning by removing the 'return' keywords above
-    // and using a more idiomatic approach
     #[cfg(not(any(
-        all(target_os = "linux", feature = "hyprland"),
+        target_os = "linux",
         target_os = "macos",
         target_os = "windows"
     )))]
@@ -77,7 +83,7 @@ pub fn get_config_paths() -> Vec<std::path::PathBuf> {
     return windows::get_config_paths();
 
     #[cfg(target_os = "macos")]
-    return Vec::new(); // Placeholder for macOS
+    return macos::get_config_paths();
 
     #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     return Vec::new(); // Default for other platforms
@@ -91,7 +97,10 @@ pub fn create_config_dir() -> Result<std::path::PathBuf, Box<dyn Error>> {
     #[cfg(target_os = "windows")]
     return windows::create_config_dir();
 
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    #[cfg(target_os = "macos")]
+    return macos::create_config_dir();
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
     {
         // Default implementation for other platforms
         let config_dir = if let Ok(xdg_config) = std::env::var("XDG_CONFIG_HOME") {

@@ -10,7 +10,30 @@ use tray_icon::{
 };
 
 #[cfg(target_os = "macos")]
-use std::env;
+mod objc_types {
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct NSPoint {
+        pub x: f64,
+        pub y: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct NSSize {
+        pub width: f64,
+        pub height: f64,
+    }
+
+    #[repr(C)]
+    #[derive(Debug, Copy, Clone)]
+    pub struct NSRect {
+        pub origin: NSPoint,
+        pub size: NSSize,
+    }
+}
+
+
 
 
 
@@ -21,6 +44,11 @@ enum UserEvent {
 }
 
 pub fn setup_tray() {
+    // Use the standard tray-icon implementation for all platforms
+    // The dock icon hiding is handled by Info.plist LSUIElement=true
+    
+
+    
     let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
 
     let proxy = event_loop.create_proxy();
@@ -161,7 +189,37 @@ fn handle_settings_click() {
         }
     }
     
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    {
+        use crate::platforms;
+        
+        println!("DEBUG: macOS settings dialog opening...");
+        
+        // Get or create the config directory
+        match platforms::create_config_dir() {
+            Ok(config_dir) => {
+                let config_path = config_dir.join("config.toml");
+                
+                // Create default config if it doesn't exist
+                if !config_path.exists() {
+                    if let Err(e) = crate::core::create_default_config(&config_path) {
+                        show_macos_error_message(&format!("Failed to create configuration file: {}", e));
+                        return;
+                    }
+                }
+                
+                // Show the settings dialog
+                if let Err(e) = show_macos_settings_dialog(&config_path) {
+                    show_macos_error_message(&format!("Failed to show settings dialog: {}", e));
+                }
+            }
+            Err(e) => {
+                show_macos_error_message(&format!("Failed to access configuration directory: {}", e));
+            }
+        }
+    }
+    
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         // For other platforms, show a simple message for now
         println!("Settings functionality not yet implemented for this platform");
@@ -535,6 +593,340 @@ fn show_error_message(message: &str) {
 
 
 
+
+#[cfg(target_os = "macos")]
+fn show_macos_settings_dialog(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use objc::{msg_send, sel, sel_impl};
+    use objc::runtime::{Object, Class};
+    
+    println!("DEBUG: Starting macOS settings dialog creation");
+    
+    // CRASH INVESTIGATION: Detect execution context
+    let is_packaged_app = std::env::var("CFBundleIdentifier").is_ok() || 
+                         std::env::current_exe().map(|p| p.to_string_lossy().contains(".app/")).unwrap_or(false);
+    
+    println!("DEBUG: CRASH INVESTIGATION - Execution context: {}", 
+             if is_packaged_app { "Packaged App (.app bundle)" } else { "Terminal/Development" });
+    
+    // CRASH INVESTIGATION: Set up crash reporting
+    setup_crash_reporting();
+    
+    println!("DEBUG: CRASH INVESTIGATION - macOS crash dump analysis:");
+    println!("DEBUG: - Check Console.app for crash logs");
+    println!("DEBUG: - Look in ~/Library/Logs/DiagnosticReports/ for QMKonnect crash reports");
+    println!("DEBUG: - Use 'sudo dtruss -p <pid>' to trace system calls");
+    println!("DEBUG: - Use 'sample <process_name>' to get stack traces");
+    
+    // CRITICAL FIX: The app crashes when packaged because it runs as LSBackgroundOnly=true
+    // This means it doesn't have a main autorelease pool like GUI apps
+    // We need to create our own autorelease pool for the settings dialog
+    
+    unsafe {
+        println!("DEBUG: CRASH FIX - Creating autorelease pool for background app");
+        
+        // Create an autorelease pool - this is the key fix for the crash
+        let pool_class = Class::get("NSAutoreleasePool").ok_or("Failed to get NSAutoreleasePool class")?;
+        let pool: *mut Object = msg_send![pool_class, new];
+        
+        if pool.is_null() {
+            return Err("Failed to create autorelease pool".into());
+        }
+        
+        println!("DEBUG: CRASH FIX - Autorelease pool created successfully");
+        
+        // Execute the dialog within the autorelease pool
+        let result = show_settings_dialog_with_pool(config_path);
+        
+        // Drain the autorelease pool - this will properly clean up all autoreleased objects
+        println!("DEBUG: CRASH FIX - Draining autorelease pool");
+        let _: () = msg_send![pool, drain];
+        println!("DEBUG: CRASH FIX - Autorelease pool drained successfully");
+        
+        result
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn show_settings_dialog_with_pool(config_path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use objc::{msg_send, sel, sel_impl};
+    use objc::runtime::{Object, Class};
+    
+    // Load current configuration
+    let current_config = match crate::core::parse_config(config_path) {
+        Ok(config) => {
+            println!("DEBUG: Successfully loaded config - vendor_id: 0x{:04x}, product_id: 0x{:04x}", config.vendor_id, config.product_id);
+            config
+        },
+        Err(e) => {
+            println!("DEBUG: Failed to load config, using defaults: {}", e);
+            crate::core::Config {
+                vendor_id: 0xfeed,
+                product_id: 0x0000,
+            }
+        }
+    };
+
+    unsafe {
+        println!("DEBUG: Creating NSAlert instance");
+        
+        // Create NSAlert
+        let alert_class = Class::get("NSAlert").ok_or("Failed to get NSAlert class")?;
+        let alert: *mut Object = msg_send![alert_class, new];
+        
+        if alert.is_null() {
+            return Err("Failed to create NSAlert instance".into());
+        }
+        
+        println!("DEBUG: NSAlert created successfully");
+        
+        // Set alert properties
+        let title = create_nsstring("QMK Settings")?;
+        let message = create_nsstring(&format!(
+            "Current Configuration:\nVendor ID: 0x{:04x}\nProduct ID: 0x{:04x}\n\nEnter new values (hex format):",
+            current_config.vendor_id, current_config.product_id
+        ))?;
+        
+        println!("DEBUG: Setting alert title and message");
+        let _: () = msg_send![alert, setMessageText: title];
+        let _: () = msg_send![alert, setInformativeText: message];
+        
+        // Add buttons
+        println!("DEBUG: Adding buttons to alert");
+        let ok_button_title = create_nsstring("OK")?;
+        let cancel_button_title = create_nsstring("Cancel")?;
+        
+        let _: *mut Object = msg_send![alert, addButtonWithTitle: ok_button_title];
+        let _: *mut Object = msg_send![alert, addButtonWithTitle: cancel_button_title];
+        
+        // Create input fields using NSTextField
+        println!("DEBUG: Creating input text fields");
+        let textfield_class = Class::get("NSTextField").ok_or("Failed to get NSTextField class")?;
+        
+        // Vendor ID field
+        let vendor_field: *mut Object = msg_send![textfield_class, new];
+        if vendor_field.is_null() {
+            return Err("Failed to create vendor ID text field".into());
+        }
+        
+        let vendor_value = create_nsstring(&format!("{:04x}", current_config.vendor_id))?;
+        let _: () = msg_send![vendor_field, setStringValue: vendor_value];
+        let _: () = msg_send![vendor_field, setFrame: objc_types::NSRect {
+            origin: objc_types::NSPoint { x: 0.0, y: 0.0 },
+            size: objc_types::NSSize { width: 100.0, height: 22.0 }
+        }];
+        
+        // Product ID field  
+        let product_field: *mut Object = msg_send![textfield_class, new];
+        if product_field.is_null() {
+            return Err("Failed to create product ID text field".into());
+        }
+        
+        let product_value = create_nsstring(&format!("{:04x}", current_config.product_id))?;
+        let _: () = msg_send![product_field, setStringValue: product_value];
+        let _: () = msg_send![product_field, setFrame: objc_types::NSRect {
+            origin: objc_types::NSPoint { x: 0.0, y: 30.0 },
+            size: objc_types::NSSize { width: 100.0, height: 22.0 }
+        }];
+        
+        // Create container view
+        println!("DEBUG: Creating container view for input fields");
+        let view_class = Class::get("NSView").ok_or("Failed to get NSView class")?;
+        let container_view: *mut Object = msg_send![view_class, new];
+        if container_view.is_null() {
+            return Err("Failed to create container view".into());
+        }
+        
+        let _: () = msg_send![container_view, setFrame: objc_types::NSRect {
+            origin: objc_types::NSPoint { x: 0.0, y: 0.0 },
+            size: objc_types::NSSize { width: 200.0, height: 60.0 }
+        }];
+        
+        let _: () = msg_send![container_view, addSubview: vendor_field];
+        let _: () = msg_send![container_view, addSubview: product_field];
+        let _: () = msg_send![alert, setAccessoryView: container_view];
+        
+        println!("DEBUG: About to show modal dialog");
+        
+        // Show the dialog and get response
+        println!("DEBUG: CRASH INVESTIGATION - About to call runModal (potential crash point)");
+        let response: isize = msg_send![alert, runModal];
+        
+        println!("DEBUG: Dialog returned with response: {} - CRASH INVESTIGATION", response);
+        
+        // CRASH INVESTIGATION: Identify which button was clicked
+        match response {
+            1000 => println!("DEBUG: CRASH INVESTIGATION - OK button clicked (response 1000)"),
+            1001 => println!("DEBUG: CRASH INVESTIGATION - Cancel button clicked (response 1001)"),
+            _ => println!("DEBUG: CRASH INVESTIGATION - Unknown response: {} (possible close button)", response),
+        }
+        
+        // CRASH INVESTIGATION: Identify which button triggers crash
+        println!("DEBUG: BUTTON HANDLING - Response code: {}", response);
+        
+        // Process response (1000 = OK, 1001 = Cancel for NSAlert)
+        if response == 1000 {
+            println!("DEBUG: CRASH INVESTIGATION - OK button path - processing input");
+            println!("DEBUG: CRASH INVESTIGATION - Testing if crash occurs in OK button handling");
+            println!("DEBUG: CRASH INVESTIGATION - Testing if crash occurs during OK button handling");
+            
+            // Get values from text fields
+            let vendor_nsstring: *mut Object = msg_send![vendor_field, stringValue];
+            let product_nsstring: *mut Object = msg_send![product_field, stringValue];
+            
+            let vendor_str = nsstring_to_rust_string(vendor_nsstring)?;
+            let product_str = nsstring_to_rust_string(product_nsstring)?;
+            
+            println!("DEBUG: Got input values - vendor: '{}', product: '{}'", vendor_str, product_str);
+            
+            // Parse hex values
+            match (parse_hex_value(&vendor_str), parse_hex_value(&product_str)) {
+                (Ok(vendor_id), Ok(product_id)) => {
+                    println!("DEBUG: Successfully parsed values - vendor_id: 0x{:04x}, product_id: 0x{:04x}", vendor_id, product_id);
+                    
+                    // Save to file
+                    let config_content = format!(
+                        "# QMKonnect Configuration\n\n# Your QMK keyboard's vendor ID (in hex)\nvendor_id = 0x{:04x}\n\n# Your QMK keyboard's product ID (in hex)\nproduct_id = 0x{:04x}\n\n# Add any other configuration options here\n",
+                        vendor_id, product_id
+                    );
+
+                    println!("DEBUG: Writing config to file");
+                    std::fs::write(config_path, config_content)?;
+                    println!("DEBUG: Config saved successfully");
+                }
+                (Err(e), _) | (_, Err(e)) => {
+                    println!("DEBUG: Parse error: {}", e);
+                    show_macos_error_message(&format!("Invalid input: {}", e));
+                }
+            }
+        } else if response == 1001 {
+            println!("DEBUG: BUTTON HANDLING - Cancel button clicked");
+            println!("DEBUG: CRASH INVESTIGATION - Testing if crash occurs during Cancel button handling");
+        } else {
+            println!("DEBUG: BUTTON HANDLING - Dialog closed via close button or ESC, response: {}", response);
+            println!("DEBUG: CRASH INVESTIGATION - Testing if crash occurs during close button handling");
+        }
+        
+        println!("DEBUG: CRASH FIX - Dialog completed, autorelease pool will handle cleanup");
+        
+        // CRASH FIX: No manual cleanup needed!
+        // The autorelease pool will automatically clean up all autoreleased objects
+        // when it's drained in the calling function
+        
+        println!("DEBUG: CRASH FIX - All objects will be cleaned up by autorelease pool drain");
+    }
+
+    Ok(())
+}
+
+#[cfg(target_os = "macos")]
+fn create_nsstring(s: &str) -> Result<*mut objc::runtime::Object, Box<dyn std::error::Error>> {
+    use objc::{msg_send, sel, sel_impl};
+    use objc::runtime::{Object, Class};
+    use std::ffi::CString;
+    
+    unsafe {
+        let c_string = CString::new(s)?;
+        let nsstring_class = Class::get("NSString").ok_or("Failed to get NSString class")?;
+        let nsstring: *mut Object = msg_send![nsstring_class, stringWithUTF8String: c_string.as_ptr()];
+        
+        if nsstring.is_null() {
+            return Err("Failed to create NSString".into());
+        }
+        
+        Ok(nsstring)
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn nsstring_to_rust_string(nsstring: *mut objc::runtime::Object) -> Result<String, Box<dyn std::error::Error>> {
+    use objc::{msg_send, sel, sel_impl};
+    
+    unsafe {
+        let utf8_ptr: *const i8 = msg_send![nsstring, UTF8String];
+        if utf8_ptr.is_null() {
+            return Err("Failed to get UTF8 string from NSString".into());
+        }
+        
+        let c_str = std::ffi::CStr::from_ptr(utf8_ptr);
+        Ok(c_str.to_string_lossy().into_owned())
+    }
+}
+
+
+
+#[cfg(target_os = "macos")]
+fn parse_hex_value(input: &str) -> Result<u16, Box<dyn std::error::Error>> {
+    let trimmed = input.trim().to_lowercase();
+    let hex_str = if trimmed.starts_with("0x") {
+        &trimmed[2..]
+    } else {
+        &trimmed
+    };
+    
+    u16::from_str_radix(hex_str, 16).map_err(|e| format!("Invalid hex value '{}': {}", input, e).into())
+}
+
+#[cfg(target_os = "macos")]
+fn setup_crash_reporting() {
+    println!("DEBUG: Setting up macOS crash reporting");
+    
+    // Enable crash reporting for this process
+    // Crash reports will be automatically generated by macOS and stored in:
+    // ~/Library/Logs/DiagnosticReports/
+    // /Library/Logs/DiagnosticReports/ (system-wide)
+    
+    // Set environment variable to ensure crash reports are generated
+    std::env::set_var("MallocStackLogging", "1");
+    std::env::set_var("MallocScribble", "1");
+    
+    println!("DEBUG: Crash reporting configured");
+    println!("DEBUG: Crash dumps location: ~/Library/Logs/DiagnosticReports/");
+    println!("DEBUG: Use 'sudo dtruss -p <pid>' to trace system calls during crash");
+    println!("DEBUG: Use 'sample <process_name> 1' to get stack trace");
+    
+    // CRASH FIX EXPLANATION
+    println!("DEBUG: CRASH FIX - Background apps (LSBackgroundOnly=true) need explicit autorelease pools");
+    println!("DEBUG: CRASH FIX - Terminal apps inherit system autorelease pool, packaged apps don't");
+}
+
+
+
+#[cfg(target_os = "macos")]
+fn show_macos_error_message(message: &str) {
+    use objc::{msg_send, sel, sel_impl};
+    use objc::runtime::{Object, Class};
+    
+    println!("DEBUG: Showing error message: {}", message);
+    eprintln!("Settings error: {}", message);
+    
+    unsafe {
+        if let Some(alert_class) = Class::get("NSAlert") {
+            let alert: *mut Object = msg_send![alert_class, new];
+            if !alert.is_null() {
+                if let Ok(title) = create_nsstring("QMKonnect - Error") {
+                    if let Ok(msg) = create_nsstring(message) {
+                        let _: () = msg_send![alert, setMessageText: title];
+                        let _: () = msg_send![alert, setInformativeText: msg];
+                        let _: () = msg_send![alert, setAlertStyle: 2]; // NSAlertStyleCritical
+                        let _: isize = msg_send![alert, runModal];
+                        
+                        // Cleanup
+                        let _: () = msg_send![title, release];
+                        let _: () = msg_send![msg, release];
+                        let _: () = msg_send![alert, release];
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+// Removed broken native macOS implementation
+// The tray-icon crate handles this properly, and LSUIElement=true in Info.plist handles dock hiding
+
+// Removed native menu delegate - using tray-icon crate instead
 
 #[cfg(target_os = "macos")]
 fn load_icon_from_bundle() -> Result<tray_icon::Icon, Box<dyn std::error::Error>> {

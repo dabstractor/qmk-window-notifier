@@ -5,6 +5,7 @@ use crate::core::types::WindowInfo;
 use crate::platforms::WindowMonitor;
 use std::error::Error;
 use std::ffi::c_void;
+use std::path::PathBuf;
 
 use core_foundation::{
     array::CFArray,
@@ -26,10 +27,6 @@ extern "C" {
     static NSWorkspaceDidActivateApplicationNotification: *const Object;
     static kCGWindowOwnerName: *const c_void;
     static kCGWindowName: *const c_void;
-    // static kCGWindowNumber: *const c_void;
-
-    // MacOS Block_copy function
-    fn _Block_copy(block: *const c_void) -> *mut c_void;
 }
 
 // New extern block for screen recording permissions:
@@ -47,10 +44,7 @@ const NIL: *mut Object = std::ptr::null_mut();
 // Global verbose setting that can be accessed by callback
 static mut VERBOSE: bool = false;
 
-#[cfg(feature = "modern_macos")]
-extern "C" {
-    static NSWorkspaceAuthorizationTypeScreenCapture: *const Object;
-}
+
 
 pub struct MacOSMonitor {
     verbose: bool,
@@ -84,35 +78,15 @@ impl MacOSMonitor {
 
     unsafe fn setup_observers(&mut self) -> Result<(), Box<dyn Error>> {
         // Set global verbose flag for callbacks
-        unsafe {
-            VERBOSE = self.verbose;
-        }
+        VERBOSE = self.verbose;
         let workspace: *mut Object = msg_send![class!(NSWorkspace), sharedWorkspace];
         let notification_center: *mut Object = msg_send![workspace, notificationCenter];
 
-        // Remove unused sel and observer variables since they're not being used
-        // let sel = sel!(observeNotification:);
-        // let observer: *mut Object = msg_send![class!(NSObject), new];
 
-        // Remove unused handle_notification function since we're using notification_handler
-        // extern "C" fn handle_notification(
-        //     _this: *mut Object,
-        //     _cmd: objc::runtime::Sel,
-        //     _: *mut Object,
-        // ) {
-        //     // Get the verbose flag
-        //     let verbose = unsafe { VERBOSE };
-
-        //     // Handle the window information
-        //     if let Ok(Some(window_info)) = get_active_window_info() {
-        //         let _ = notifier::notify_qmk(&window_info, verbose);
-        //     }
-        // }
 
         // Register the method with the Objective-C runtime
-        let _: bool = unsafe {
-            use objc::declare::ClassDecl;
-            use objc::runtime::{Class, Object, Sel};
+        use objc::declare::ClassDecl;
+        use objc::runtime::{Class, Object, Sel};
 
             // Create a custom class for our observer
             let superclass = Class::get("NSObject").unwrap();
@@ -146,11 +120,8 @@ impl MacOSMonitor {
                                 name:NSWorkspaceDidActivateApplicationNotification
                                 object:NIL];
 
-            // Don't release the observer, we need it to stay alive
-            let _ = observer;
-
-            true
-        };
+        // Don't release the observer, we need it to stay alive
+        let _ = observer;
 
         self.running = true;
 
@@ -187,38 +158,33 @@ impl WindowMonitor for MacOSMonitor {
             println!("Starting macOS window monitor");
         }
 
-        {
-            unsafe {
-                // First, check and request screen recording permission.
-                if !MacOSMonitor::request_screen_recording_permission() {
-                    return Err("Screen recording permission not granted.".into());
-                }
-
-                self.setup_observers()?;
-
-                // Capture the initial active application
-                let _ = get_active_window_info().map(|info| {
-                    if let Some(window_info) = info {
-                        if let Err(e) = notifier::notify_qmk(&window_info, self.verbose) {
-                            eprintln!("Failed to notify QMK: {}", e);
-                        }
-                    }
-                });
-
-                // Run the event loop
-                CFRunLoopRun();
+        unsafe {
+            // First, check and request screen recording permission.
+            if !MacOSMonitor::request_screen_recording_permission() {
+                return Err("Screen recording permission not granted.".into());
             }
 
-            return Ok(());
+            self.setup_observers()?;
+
+            // Capture the initial active application
+            let _ = get_active_window_info().map(|info| {
+                if let Some(window_info) = info {
+                    if let Err(e) = notifier::notify_qmk(&window_info, self.verbose) {
+                        eprintln!("Failed to notify QMK: {}", e);
+                    }
+                }
+            });
+
+            // Run the event loop
+            CFRunLoopRun();
         }
+
+        Ok(())
     }
 
     fn stop(&mut self) -> Result<(), Box<dyn Error>> {
-        {
-            self.running = false;
-            CFRunLoop::get_current().stop();
-        }
-
+        self.running = false;
+        CFRunLoop::get_current().stop();
         Ok(())
     }
 }
@@ -302,4 +268,50 @@ fn nsstring_to_string(nsstring: *mut Object) -> String {
 
 fn cfstring_to_string(cf_string: &CFString) -> String {
     cf_string.to_string()
+}
+
+// macOS-specific configuration path handling
+pub fn get_config_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+
+    // Primary location: ~/Library/Application Support/QMKonnect/config.toml
+    if let Some(home) = dirs::home_dir() {
+        paths.push(
+            home.join("Library")
+                .join("Application Support")
+                .join("QMKonnect")
+                .join("config.toml"),
+        );
+    }
+
+    // Secondary location: ~/.config/qmk-notifier/config.toml (XDG-style fallback)
+    if let Some(home) = dirs::home_dir() {
+        paths.push(
+            home.join(".config")
+                .join("qmk-notifier")
+                .join("config.toml"),
+        );
+    }
+
+    // System-wide config as last resort
+    paths.push(PathBuf::from("/etc/qmk-notifier/config.toml"));
+
+    paths
+}
+
+// Create macOS configuration directory
+pub fn create_config_dir() -> Result<PathBuf, Box<dyn Error>> {
+    // Use ~/Library/Application Support/QMKonnect for macOS
+    let config_dir = if let Some(home) = dirs::home_dir() {
+        home.join("Library")
+            .join("Application Support")
+            .join("QMKonnect")
+    } else {
+        return Err("Could not determine home directory".into());
+    };
+
+    // Create directory if it doesn't exist
+    std::fs::create_dir_all(&config_dir)?;
+    
+    Ok(config_dir)
 }

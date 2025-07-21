@@ -27,8 +27,6 @@ cat << EOF > "QMKonnect.app/Contents/Info.plist"
     <string>QMKonnect</string>
     <key>CFBundleDisplayName</key>
     <string>QMKonnect</string>
-    <key>LSBackgroundOnly</key>
-    <true/>
     <key>CFBundleIconFile</key>
     <string>Icon.icns</string>
 </dict>
