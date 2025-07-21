@@ -1,0 +1,11 @@
+source 'https://rubygems.org'
+
+gem "jekyll", "~> 4.4.1"
+gem "jekyll-theme-chirpy", "~> 7.2"
+
+# Chirpy dependencies
+gem "html-proofer", "~> 5.0", group: :test
+
+# Standard gems
+gem "erb"
+gem "logger"

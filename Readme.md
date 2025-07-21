@@ -1,10 +1,10 @@
 # QMKonnect
 
-A cross-platform Rust application that detects active window changes and sends this information to QMK keyboards, enabling dynamic layer switching and command execution based on the active application.
+Detects window changes and tells your QMK keyboard what app you're using so it can switch layers automatically.
 
 ## Overview
 
-QMKonnect bridges the gap between your operating system and QMK-powered keyboards. It monitors window focus changes and transmits application class and title information to your keyboard, enabling context-aware layer switching and feature toggling.
+QMKonnect watches which window is active and sends that info to your QMK keyboard. Your keyboard can then switch layers or run commands based on what app you're using.
 
 This tool is part of a broader ecosystem:
 - **[qmk-notifier](https://github.com/dabstractor/qmk-notifier)**: QMK module that receives commands and handles layer/feature toggling on your keyboard
@@ -14,32 +14,25 @@ This tool is part of a broader ecosystem:
 ## Features
 
 - **Cross-Platform Support**:
-  - Windows: Silent background application with system tray icon
-  - Linux: Seamless integration with Hyprland's event system
-  - macOS: Native window focus detection
+  - Windows
+  - macOS
+  - Linux: Arch/Hyprland only
 
 - **Core Functionality**:
-  - Real-time window focus change detection
-  - Automatic transmission of application class and window title to QMK keyboards
-  - Minimal resource footprint
-  - Verbose logging option for debugging
-
-- **Windows-Specific Features**:
-  - Silent background operation (no console window)
-  - System tray icon for easy access and control
-  - Automatic startup with Windows
-  - Singleton application (prevents multiple instances)
-  - Professional MSI installer
+  - Detects window changes in real-time
+  - Sends app name and window title to your QMK keyboard
+  - Low resource usage
+  - Debug logging when you need it
 
 - **Configuration**:
-  - User-configurable settings
-  - Automatic configuration reload
+  - Easy to configure
+  - Reloads settings automatically
 
 ## Installation
 
 ### Windows
 
-1. Download the MSI installer from the [releases page](https://github.com/dabstractor/qmkonnect/releases)
+1. Download the MSI installer: [QMKonnect.msi](https://github.com/dabstractor/qmkonnect/releases/download/v0.1.0/QMKonnect.msi)
 2. Run the installer as Administrator
 3. The application will start automatically and be added to Windows startup
 
@@ -52,7 +45,7 @@ makepkg -si
 ```
 
 ### Other Linux Systems
-Download the release binary from the [releases page](https://github.com/dabstractor/qmkonnect/releases)
+Download the release binary: [qmkonnect](https://github.com/dabstractor/qmkonnect/releases/download/v0.1.0/qmkonnect)
 
 If you want it to start automatically, install the service file and start the service:
 ```
@@ -70,80 +63,115 @@ sudo qmkonnect -r
 sudo udevadm control --reload && sudo udevadm trigger
 ```
 
-### MacOS
+### macOS
+
+1. Download QMKonnect.app from the [releases page](https://github.com/dabstractor/qmkonnect/releases/download/v0.1.0/QMKonnect.dmg)
+2. Copy QMKonnect.app to your Applications folder
+3. Launch QMKonnect from Applications folder
+
+### From Source
+
+**Windows:**
+```bash
+git clone https://github.com/dabstractor/qmkonnect.git
+cd qmkonnect/packaging/windows
+./build-installer.ps1
+```
+
+**macOS:**
 ```bash
 git clone https://github.com/dabstractor/qmkonnect.git
 cd qmkonnect/packaging/macos
 ./build.sh
 ```
-Then copy your QMKonnect.app to your /Applications folder
-
-### From Source
-
-```bash
-# Clone the repository
-git clone https://github.com/dabstractor/qmkonnect.git
-cd qmkonnect
-
-# Build the project
-cargo build --release
-
-# The binary will be available at target/release/qmkonnect
-```
-
-#### Platform-Specific Installation Steps
-
-**Windows:**
-```powershell
-# Copy to Program Files
-Copy-Item target\release\qmkonnect.exe "$env:ProgramFiles\QMKonnect\"
-
-# Add to startup (optional)
-$startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-$shortcutPath = "$startupFolder\QMKonnect.lnk"
-$shell = New-Object -ComObject WScript.Shell
-$shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = "$env:ProgramFiles\QMKonnect\qmkonnect.exe"
-$shortcut.Arguments = "--tray-app"
-$shortcut.Save()
-```
 
 **Linux:**
 ```bash
-# Copy to a location in your PATH
-sudo cp target/release/qmkonnect /usr/local/bin/
-
-# Create udev rules file
-sudo cp packaging/linux/udev/99-qmkonnect.rules.template /etc/udev/rules.d/99-qmkonnect.rules.template
-
-# Create systemd service file
-mkdir -p ~/.config/systemd/user/
-cp packaging/linux/systemd/qmkonnect.service.template ~/.config/systemd/user/qmkonnect.service
+git clone https://github.com/dabstractor/qmkonnect.git
+cd qmkonnect
+cargo build --release
 ```
+
+
+
+## QMK Firmware Setup (REQUIRED)
+
+**IMPORTANT**: QMKonnect will not work at all without proper QMK firmware configuration. You must add the qmk-notifier module to your keyboard's firmware first.
+
+### 1. Add the QMK Notifier Module
+
+In your QMK keymap directory:
+
+```bash
+git submodule add https://github.com/dabstractor/qmk-notifier.git qmk-notifier
+```
+
+### 2. Enable Raw HID
+
+In your `rules.mk`:
+
+```make
+RAW_ENABLE = yes
+```
+
+### 3. Configure Your Keymap
+
+Add this to your `keymap.c`:
+
+```c
+#include QMK_KEYBOARD_H
+#include "./qmk-notifier/notifier.h"
+
+void raw_hid_receive(uint8_t *data, uint8_t length) {
+    hid_notify(data, length);
+}
+
+// Your keymap definitions here...
+```
+
+### 4. Set Up Layer Switching
+
+Create your layer definitions and serial commands. See the [Examples](https://dabstractor.github.io/qmkonnect/examples) for the correct implementation using `DEFINE_SERIAL_LAYERS` and `DEFINE_SERIAL_COMMANDS` macros.
+
+### 5. Flash Your Keyboard
+
+Build and flash your updated firmware to your keyboard. **QMKonnect cannot communicate with your keyboard until this firmware is installed.**
 
 ## Configuration
 
-### Creating a Configuration File
+After setting up your QMK firmware, configure QMKonnect with your keyboard's Vendor ID and Product ID.
 
-Create a configuration file with:
+### Windows & macOS
+
+1. Right-click the QMKonnect system tray icon
+2. Select "Settings"
+3. Enter your keyboard's Vendor ID (hex format, e.g., feed)
+4. Enter your keyboard's Product ID (hex format, e.g., 0000)
+5. Click OK to save
+
+### Linux
+
+Edit the configuration file at `~/.config/qmk-notifier/config.toml`.
+
+If no file exists, create it:
 
 ```bash
 qmkonnect -c
 ```
 
-This will create a configuration file at:
-- Windows: `%APPDATA%\qmk-notifier\config.toml`
-- Linux/macOS: `~/.config/qmk-notifier/config.toml`
+Set your keyboard's Vendor ID and Product ID:
+```
+vendor_id = 0xfeed
+product_id = 0x0000
+```
 
-### Reloading Configuration
-
-After changing the configuration file, reload it with:
+Then reload:
 
 ```bash
 qmkonnect -r
 ```
 
-On Linux, also reload udev rules:
+Also reload your udev rules to enable hotplug detection:
 ```bash
 sudo udevadm control --reload && sudo udevadm trigger
 ```
@@ -156,15 +184,11 @@ The application starts automatically with Windows and runs in the background wit
 
 - **Start manually**: Run "QMKonnect" from Start Menu
 - **Exit**: Right-click the system tray icon and select "Quit"
-- **Command-line options**:
-  - `--tray-app`: Run as tray application (default)
-  - `-v, --verbose`: Enable verbose logging
-  - `-c, --config`: Create a configuration file
-  - `-r, --reload`: Reload configuration
 
-### MacOS
+### macOS
 
-Run the application from within your QMKonnect.app.
+- **Start**: Launch QMKonnect from Applications folder
+- **Exit**: Right-click the menu bar icon and select "Quit"
 
 ### Linux
 
@@ -209,8 +233,6 @@ vendor_id = 0xfeed
 
 # Your QMK keyboard's product ID (in hex)
 product_id = 0x0000
-
-# Add any other configuration options here
 ```
 
 ## Example Use Cases
